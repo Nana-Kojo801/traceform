@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { useNavigate } from 'react-router'
-import { ArrowRight, FileText, GitCompareArrows, CircleDashed, ScanSearch } from 'lucide-react'
+import { ArrowRight, FileText, GitCompareArrows, CircleDashed, RotateCcw, ScanSearch } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import { Button } from '@/components/ui/button'
@@ -15,10 +15,11 @@ export function DemoCard() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
 
-  async function open() {
+  async function open(reset = false) {
+    if (reset && !confirm('Reset the sample project? Its review edits and live runs will be deleted.')) return
     setBusy(true)
     try {
-      const id = await loadDemo({})
+      const id = await loadDemo({ reset })
       navigate(`/projects/${id}?tab=review`)
     } catch (err) {
       toast.error(errorMessage(err))
@@ -52,10 +53,16 @@ export function DemoCard() {
         </li>
       </ul>
       <div className="mt-5 flex flex-wrap gap-2">
-        <Button onClick={open} disabled={busy}>
+        <Button onClick={() => open()} disabled={busy}>
           {demoId ? 'Open demo' : 'Try demo'}
           <ArrowRight />
         </Button>
+        {demoId && (
+          <Button variant="ghost" onClick={() => open(true)} disabled={busy}>
+            <RotateCcw />
+            Reset demo
+          </Button>
+        )}
       </div>
     </Card>
   )

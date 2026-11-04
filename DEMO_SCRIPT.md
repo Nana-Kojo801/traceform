@@ -52,6 +52,8 @@ Point at the two Verification boxes.
 
 Optionally mention: "We ran the same repair loop live against Meta with injected fake citations. All 3 were caught, the 2 real facts were re-cited, and the fake fiscal sponsor was withdrawn as missing. That's in EVALUATION.md."
 
+**Optional, if time allows (about 10 s):** on the live run, open **Requested amount** and point at **Model second opinion**. "A separate auditor call to Meta gives an advisory second opinion. Here it notes the email is a later revision. It's a hint for the reviewer, never proof, and it never changes a status." Alternatively, show a project where a **photo of a page** was uploaded: "Photos and scans are transcribed by Muse Spark vision, labeled as model transcription, and citations are verified against that transcription. You can compare it with the original."
+
 ### 2:30 to 2:50. Resolve and export
 
 **Screen:** back to the live run. Select **Requested amount** → **Use this value** on $54,000. Approve **Organization name**. Edit a value and show the "Saving… Saved" indicator. Then select **CSV** and **JSON**, and open the CSV.
@@ -60,7 +62,7 @@ Optionally mention: "We ran the same repair loop live against Meta with injected
 
 ### 2:50 to 3:00. What Meta's model does at each step
 
-> "Meta's model does the reading, the extraction, and the self-repair. Deterministic code does the verifying. A person makes the final call. TraceForm: every answer, accounted for."
+> "Meta's model reads scans, extracts the answers, repairs its own citations, and gives a second opinion. Deterministic code does the verifying. A person makes the final call. TraceForm: every answer, accounted for."
 
 ---
 

@@ -108,7 +108,7 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
   const preview = documents.find((d) => d._id === previewId && d.parseStatus === 'parsed')
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <div className="space-y-3">
         <div
           onDragOver={(e) => {

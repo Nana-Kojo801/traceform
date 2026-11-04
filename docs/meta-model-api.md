@@ -87,9 +87,41 @@ TraceForm reads the JSON text by concatenating `output[type=message].content[typ
 | `META_MODEL` | `muse-spark-1.3` | Model ID |
 | `META_API_BASE` | `https://api.meta.ai/v1` | API base URL |
 | `META_REASONING_EFFORT` | `medium` | `reasoning.effort` |
-| `DAILY_RUN_CAP` | `60` | Global cap on live extraction runs per UTC day |
+| `DAILY_RUN_CAP` | `60` | Global cap on live Meta calls (extractions and transcriptions) per UTC day |
+| `META_AUDITOR` | on | Set to `off` to skip the advisory auditor call |
+
+## Image input (vision transcription)
+
+Confirmed on `/docs/image-understanding`: on the Responses API, images go in `input_image` content blocks inside a user message. `image_url` is a plain string, either a public URL or a base64 `data:` URL. The limits are 50 MB per inline image and 50 images per request. TraceForm sends at most 3 page images per call:
+
+```json
+{
+  "model": "muse-spark-1.3",
+  "instructions": "<verbatim transcription rules, see TRANSCRIBE_INSTRUCTIONS in shared/prompt.ts>",
+  "input": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "input_text", "text": "Transcribe these 1 page image(s) from \"site-visit-note-photo.jpg\"." },
+        { "type": "input_image", "image_url": "data:image/jpeg;base64,<…>" }
+      ]
+    }
+  ],
+  "store": false,
+  "reasoning": { "effort": "low" },
+  "text": { "format": { "type": "json_schema", "name": "traceform_transcription", "strict": true, "schema": { "...": "pages[{pageNumber,text}], note" } } }
+}
+```
+
+Observed live: the sample photo and the image-only scanned PDF were each transcribed verbatim (491 characters, including the handwritten-style line), and the model's note read "Clear printed text."
+
+## Calls per live extraction
+
+1. Extraction (one call per batch of up to 20 fields), `reasoning.effort` from `META_REASONING_EFFORT` (default `medium`).
+2. Repair: one call per field whose citation failed verification (zero if none failed).
+3. Auditor: one call with all supported and conflicting fields, `reasoning.effort: low`. Turn it off with `META_AUDITOR=off`.
 
 ## Features not used
 
-- Image input (Muse Spark vision) and Muse Voice Transcribe. Both are on the stretch list; neither was built.
-- `previous_response_id` and encrypted reasoning replay. Each TraceForm call is a single independent turn.
+- Muse Voice Transcribe (audio sources): not built.
+- `previous_response_id` and encrypted reasoning replay: each TraceForm call is a single independent turn.

@@ -135,7 +135,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         {paneButton('source', 'Source')}
       </div>
 
-      <div ref={gridRef} className="relative grid gap-3 lg:h-[calc(100dvh-15.5rem)] lg:min-h-[560px] lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div ref={gridRef} className="relative grid grid-cols-1 gap-3 lg:h-[calc(100dvh-15.5rem)] lg:min-h-[560px] lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <section
           aria-label="Form fields"
           className={cn('min-h-0 lg:block', pane === 'fields' ? 'block' : 'hidden')}
@@ -153,10 +153,10 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         </section>
 
         <TraceConnector containerRef={gridRef} trigger={`${selectedId}:${active?.nonce ?? 0}:${workspace.selected._id}`} />
-        <div className="min-h-0 lg:flex lg:flex-col lg:gap-3 xl:contents">
+        <div className="min-h-0 min-w-0 lg:flex lg:flex-col lg:gap-3 xl:contents">
           <section
             aria-label="Selected answer"
-            className={cn('min-h-0 lg:block lg:max-h-[55%] lg:shrink-0 xl:max-h-none', pane === 'answer' ? 'block' : 'hidden')}
+            className={cn('min-h-0 min-w-0 lg:block lg:max-h-[55%] lg:shrink-0 xl:max-h-none', pane === 'answer' ? 'block' : 'hidden')}
           >
             {selectedField ? (
               <FieldDetail
@@ -179,7 +179,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
 
           <section
             aria-label="Source documents"
-            className={cn('min-h-0 lg:block lg:flex-1', pane === 'source' ? 'block' : 'hidden')}
+            className={cn('min-h-0 min-w-0 lg:block lg:flex-1', pane === 'source' ? 'block' : 'hidden')}
           >
             <SourceViewer
               documents={documents}
