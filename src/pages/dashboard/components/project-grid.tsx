@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
 import { useMutation } from 'convex/react'
+import { AnimatePresence, motion } from 'motion/react'
+import { snap, soft } from '@/lib/motion'
 import type { FunctionReturnType } from 'convex/server'
 import { Camera, ChevronRight, FileText, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,7 +33,7 @@ function summary(answers: FieldStatus[]) {
     .join(' · ')
 }
 
-function ProjectCard({ p }: { p: Project }) {
+function ProjectCard({ p, index }: { p: Project; index: number }) {
   const remove = useMutation(api.projects.remove)
   const photo = p.transcribedCount > 0 || p.documentKinds.includes('image')
   const order: FieldStatus[] = ['supported', 'conflicting', 'needs_review', 'missing']
@@ -40,7 +42,16 @@ function ProjectCard({ p }: { p: Project }) {
   const runText = !run ? 'Not extracted yet' : run.status === 'running' ? 'Running now' : run.status === 'failed' ? 'Last run failed' : run.isPrecomputed ? 'Sample data' : `Live run ${relativeTime(run.startedAt)}`
 
   return (
-    <div className="card group relative flex flex-col gap-4 p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)] transition-shadow hover:shadow-[0_8px_24px_rgb(17_17_19/0.08)] md:p-5">
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ ...soft, delay: 0.25 + index * 0.06 }}
+      whileHover={{ y: -3, transition: snap }}
+      whileTap={{ scale: 0.98, transition: snap }}
+      className="card group relative flex flex-col gap-4 p-4 shadow-[0_1px_2px_rgb(17_17_19/0.04)] transition-shadow duration-300 hover:shadow-[0_12px_32px_rgb(17_17_19/0.1)] md:p-5"
+    >
       <div className="flex items-start justify-between gap-3">
         <span className={photo ? 'grid size-11 place-items-center rounded-[12px] bg-[#ecebff] text-[#4b44c9]' : 'grid size-11 place-items-center rounded-[12px] bg-warn-soft text-warn-text'}>
           {photo ? <Camera className="size-[22px]" strokeWidth={2} /> : <FileText className="size-[22px]" strokeWidth={2} />}
@@ -76,8 +87,15 @@ function ProjectCard({ p }: { p: Project }) {
         {segments.length > 0 ? (
           <>
             <div className="flex h-2 gap-[3px]" aria-hidden>
-              {segments.map((x) => (
-                <span key={x.s} className={`rounded-full ${BAR[x.s]}`} style={{ flex: x.n }} />
+              {segments.map((x, i) => (
+                <motion.span
+                  key={x.s}
+                  className={`origin-left rounded-full ${BAR[x.s]}`}
+                  style={{ flex: x.n }}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ ...soft, delay: 0.45 + index * 0.06 + i * 0.08 }}
+                />
               ))}
             </div>
             <div className="flex justify-between gap-3 text-[13px]">
@@ -93,7 +111,7 @@ function ProjectCard({ p }: { p: Project }) {
           </span>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -111,12 +129,14 @@ export function ProjectGrid({ projects, query }: { projects: Projects | undefine
   const shown = q ? projects.filter((p) => p.name.toLowerCase().includes(q)) : projects
   return (
     <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-      {shown.map((p) => (
-        <ProjectCard key={p._id} p={p} />
-      ))}
+      <AnimatePresence initial={true} mode="popLayout">
+        {shown.map((p, i) => (
+          <ProjectCard key={p._id} p={p} index={i} />
+        ))}
+      </AnimatePresence>
       <NewProjectDialog
         trigger={
-          <button className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-[16px] border-2 border-dashed border-[#d3d3ce] p-5 outline-none transition-colors hover:border-ink hover:bg-card focus-visible:outline-2 focus-visible:outline-ink">
+          <button className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-[16px] border-2 border-dashed border-[#d3d3ce] p-5 outline-none transition-[border-color,background-color,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-ink hover:bg-card active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-ink">
             <span className="grid size-11 place-items-center rounded-[12px] bg-card shadow-[inset_0_0_0_1px_var(--line)]">
               <Plus className="size-[22px]" strokeWidth={2.4} />
             </span>

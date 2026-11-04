@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { BrowserRouter } from 'react-router'
 import { Toaster } from 'sonner'
+import { MotionConfig } from 'motion/react'
 import './index.css'
 import { App } from './app'
 import { MissingConfig } from './components/missing-config'
@@ -17,6 +18,7 @@ if (!url) {
   root.render(
     <StrictMode>
       <ConvexProvider client={convex}>
+        <MotionConfig reducedMotion="user">
         <BrowserRouter>
           <App />
           <Toaster
@@ -34,6 +36,7 @@ if (!url) {
             }}
           />
         </BrowserRouter>
+        </MotionConfig>
       </ConvexProvider>
     </StrictMode>,
   )

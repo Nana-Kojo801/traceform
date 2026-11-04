@@ -1,5 +1,6 @@
 import { useMutation } from 'convex/react'
 import { Check } from 'lucide-react'
+import { motion } from 'motion/react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
@@ -54,12 +55,16 @@ export function ConflictCompare({ field, result, docName, active, onShowEvidence
                 disabled={!e.sourceMatchVerified || e.claimedValue === null}
                 onClick={() => pick(i)}
                 className={cn(
-                  'mt-1.5 grid size-[22px] shrink-0 place-items-center rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                  'mt-1.5 grid size-[22px] shrink-0 place-items-center rounded-full outline-none transition-[background-color,box-shadow] duration-200 active:scale-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
                   isChosen ? 'bg-ink text-white' : 'shadow-[inset_0_0_0_2px_#c7c7cc] hover:shadow-[inset_0_0_0_2px_var(--ink)]',
                 )}
                 aria-label={`Choose ${formatValue(e.claimedValue, field.type)}`}
               >
-                {isChosen && <Check className="size-3" strokeWidth={3.5} />}
+                {isChosen && (
+                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 600, damping: 22 }} className="grid place-items-center">
+                    <Check className="size-3" strokeWidth={3.5} />
+                  </motion.span>
+                )}
               </button>
               <div className="min-w-0 flex-1">
                 <button onClick={() => pick(i)} disabled={!e.sourceMatchVerified || e.claimedValue === null} className="flex items-center gap-2 text-left outline-none">

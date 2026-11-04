@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { snap } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { exportFileName, toCsv, toJson, type ExportInput } from '@shared/export'
 import type { FormSchema } from '@shared/types'
@@ -61,10 +63,19 @@ export function ExportMenu({ project, schema, documents, workspace }: Props) {
     <div ref={ref} className="relative">
       <Button variant="tint" disabled={disabled} onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" className="max-md:h-11 max-md:px-3.5">
         Export
-        <ChevronDown className="size-3.5" />
+        <ChevronDown className={`size-3.5 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
       </Button>
+      <AnimatePresence>
       {open && (
-        <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-[16px] bg-card shadow-[0_16px_40px_rgb(0_0_0/0.14)] animate-fade-in">
+        <motion.div
+          role="menu"
+          initial={{ opacity: 0, scale: 0.92, y: -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: -4, transition: { duration: 0.14 } }}
+          transition={snap}
+          style={{ transformOrigin: 'top right' }}
+          className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 overflow-hidden rounded-[16px] bg-card shadow-[0_16px_40px_rgb(0_0_0/0.14)]"
+        >
           <button
             role="menuitem"
             className={item}
@@ -89,8 +100,9 @@ export function ExportMenu({ project, schema, documents, workspace }: Props) {
             <span className="text-[15px] font-semibold">JSON</span>
             <span className="text-[13px] text-muted">Values with their sources</span>
           </button>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useMutation } from 'convex/react'
+import { AnimatePresence, motion } from 'motion/react'
+import { slideIn, soft } from '@/lib/motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
@@ -60,9 +62,17 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
   const selectedResult = selectedId ? resultsByField.get(selectedId) : undefined
   const resolve = useResolve(selectedResult, selectedField ?? fields[0])
 
+  const paneRefs = useRef<Record<MobilePane, HTMLElement | null>>({ fields: null, answer: null, source: null })
+  const paneRef = useRef<MobilePane>('fields')
   const showPane = useCallback((next: MobilePane) => {
+    const order: MobilePane[] = ['fields', 'answer', 'source']
+    const dir = Math.sign(order.indexOf(next) - order.indexOf(paneRef.current)) as 1 | -1 | 0
+    paneRef.current = next
     setPane(next)
-    if (window.innerWidth < 1024) window.scrollTo({ top: 0 })
+    if (window.innerWidth < 1024) {
+      window.scrollTo({ top: 0 })
+      if (dir !== 0) requestAnimationFrame(() => slideIn(paneRefs.current[next], dir))
+    }
   }, [])
 
   const focusEvidence = useCallback(
@@ -233,7 +243,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         ref={gridRef}
         className="relative grid min-h-0 flex-1 grid-cols-1 gap-5 px-4 pb-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:px-7 lg:pb-7 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1.05fr)]"
       >
-        <section aria-label="Form fields" className={cn('min-h-0 min-w-0 lg:block', pane === 'fields' ? 'block' : 'hidden')}>
+        <section ref={(el) => { paneRefs.current.fields = el }} aria-label="Form fields" className={cn('min-h-0 min-w-0 lg:block', pane === 'fields' ? 'block' : 'hidden')}>
           <FieldList
             schema={schema}
             resultsByField={resultsByField}
@@ -252,6 +262,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
 
         <div className="min-h-0 min-w-0 lg:flex lg:flex-col lg:gap-5 xl:contents">
           <section
+            ref={(el) => { paneRefs.current.answer = el }}
             aria-label="Selected answer"
             className={cn('scrollbar-thin min-h-0 min-w-0 lg:block lg:flex-1 lg:overflow-y-auto lg:pr-1', pane === 'answer' ? 'block pb-24 lg:pb-0' : 'hidden')}
           >
@@ -273,7 +284,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
             )}
           </section>
 
-          <section aria-label="Source documents" className={cn('min-h-0 min-w-0 lg:block lg:h-[46%] lg:shrink-0 xl:h-auto', pane === 'source' ? 'block pb-24 lg:pb-0' : 'hidden')}>
+          <section ref={(el) => { paneRefs.current.source = el }} aria-label="Source documents" className={cn('min-h-0 min-w-0 lg:block lg:h-[46%] lg:shrink-0 xl:h-auto', pane === 'source' ? 'block pb-24 lg:pb-0' : 'hidden')}>
             <SourceViewer
               documents={documents}
               viewDocId={viewDocId}
@@ -287,8 +298,15 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
       </div>
 
       {/* Phones: one-handed review bar */}
+      <AnimatePresence>
       {pane !== 'fields' && selectedResult && (
-        <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-2.5 bg-ground/90 px-4 pb-7 pt-3 backdrop-blur lg:hidden">
+        <motion.div
+          initial={{ y: '110%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '110%' }}
+          transition={soft}
+          className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-2.5 bg-ground/90 px-4 pb-7 pt-3 backdrop-blur lg:hidden"
+        >
           <Button size="icon-lg" className="bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)]" aria-label="Previous field" onClick={() => move(-1)}>
             <ChevronLeft strokeWidth={2.8} />
           </Button>
@@ -298,8 +316,9 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
           <Button size="icon-lg" className="bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)]" aria-label="Next field" onClick={() => move(1)}>
             <ChevronRight strokeWidth={2.8} />
           </Button>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   )
 }

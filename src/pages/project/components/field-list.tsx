@@ -1,4 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
+import { LayoutGroup, motion } from 'motion/react'
+import { snap } from '@/lib/motion'
 import type { FieldStatus, FormField } from '@shared/types'
 import { StatusIcon } from '@/components/status-badge'
 import { SearchField } from '@/components/ui/input'
@@ -83,7 +85,7 @@ export function FieldList({ schema, resultsByField, visibleIds, selectedId, onSe
           </span>
         </div>
         <div className="h-1 rounded-full bg-fill" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Review progress">
-          <div className="h-1 rounded-full bg-ink transition-[width] duration-500" style={{ width: `${pct}%` }} />
+          <motion.div className="h-1 rounded-full bg-ink" initial={false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 120, damping: 20 }} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -110,6 +112,7 @@ export function FieldList({ schema, resultsByField, visibleIds, selectedId, onSe
             </button>
           </div>
         )}
+        <LayoutGroup id="field-list">
         <div className="flex flex-col gap-4">
           {sections.map((s) => {
             const inSection = fields.filter((f) => f.sectionId === s.id && visible.has(f.id))
@@ -132,19 +135,20 @@ export function FieldList({ schema, resultsByField, visibleIds, selectedId, onSe
                         tabIndex={selected || (!selectedId && f.id === visibleIds[0]) ? 0 : -1}
                         onClick={() => onSelect(f.id)}
                         className={cn(
-                          'relative flex w-full items-center gap-3 py-[11px] pl-4 pr-3.5 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
-                          selected ? 'bg-ink text-white' : 'hover:bg-[#fafaf8]',
+                          'relative flex w-full items-center gap-3 py-[11px] pl-4 pr-3.5 text-left outline-none transition-colors duration-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
+                          selected ? 'text-white' : 'hover:bg-[#fafaf8]',
                           i > 0 && !selected && 'before:absolute before:left-4 before:right-0 before:top-0 before:h-px before:bg-line-soft',
                         )}
                       >
-                        <span className="min-w-0 flex-1">
+                        {selected && <motion.span layoutId="field-selection" transition={snap} className="absolute inset-0 bg-ink" aria-hidden />}
+                        <span className="relative min-w-0 flex-1">
                           <span className={cn('flex items-center gap-1.5 truncate text-[15px]', selected && 'font-semibold')}>
                             {unreviewed && filter === 'all' && <span className={cn('size-[7px] shrink-0 rounded-full', selected ? 'bg-hl' : 'bg-ink')} aria-label="To review" />}
                             {f.label}
                           </span>
                           <span className={cn('block truncate text-[13px]', selected ? 'text-white/75' : preview.muted ? 'text-faint' : 'text-muted')}>{preview.text}</span>
                         </span>
-                        {r && <StatusIcon status={r.raw.status as FieldStatus} inverted={selected} />}
+                        {r && <StatusIcon status={r.raw.status as FieldStatus} inverted={selected} className="relative transition-colors duration-300" />}
                       </button>
                     )
                   })}
@@ -153,6 +157,7 @@ export function FieldList({ schema, resultsByField, visibleIds, selectedId, onSe
             )
           })}
         </div>
+        </LayoutGroup>
       </div>
     </div>
   )

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from 'convex/react'
+import { motion } from 'motion/react'
+import { soft } from '@/lib/motion'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
 import { checkType } from '@shared/verify'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RepairIcon, StatusIcon, StatusPill } from '@/components/status-badge'
 import { formatValue } from '@/lib/format'
@@ -118,22 +121,29 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence }
       : undefined
 
   return (
-    <article className="flex flex-col gap-6 animate-fade-in">
-      <header className="flex flex-col gap-2.5">
+    <motion.article
+      className="flex flex-col gap-6"
+      initial="hidden"
+      animate="show"
+      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.045 } } }}
+    >
+      <motion.header variants={item} className="flex flex-col gap-2.5">
         <h2 className="text-[30px] font-bold leading-[1.1] tracking-[-0.025em] md:text-[34px]">{field.label}</h2>
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill status={r.raw.status} label={r.raw.status === 'conflicting' ? 'Sources disagree, choose one' : statusLabel} />
           {r.current.state !== 'unreviewed' && (
-            <span className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[13px] font-semibold text-white">{REVIEW_LABEL[r.current.state]}</span>
+            <motion.span key={r.current.state} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 26 }} className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[13px] font-semibold text-white">
+              {REVIEW_LABEL[r.current.state]}
+            </motion.span>
           )}
         </div>
         {field.description && <p className="text-[14px] text-muted">{field.description}</p>}
-      </header>
+      </motion.header>
 
-      {r.raw.status === 'conflicting' && <ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} />}
+      {r.raw.status === 'conflicting' && <motion.div variants={item}><ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} /></motion.div>}
 
       {/* Answer */}
-      <section aria-label="Answer">
+      <motion.section variants={item} aria-label="Answer">
         <label htmlFor={`value-${field.id}`} className="block px-4 pb-1.5 text-[13px] text-muted">
           {r.raw.status === 'conflicting' ? 'Or type a value' : 'Answer'}
         </label>
@@ -196,9 +206,9 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence }
             )}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <div className="flex flex-col gap-2 max-lg:hidden">
+      <motion.div variants={item} className="flex flex-col gap-2 max-lg:hidden">
         <Button
           variant="ink"
           size="xl"
@@ -206,25 +216,27 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence }
           onClick={() => act(() => approve({ resultId: r._id }), 'Approved')}
           disabled={!draft.trim() || r.current.state === 'approved'}
         >
-          {r.current.state === 'approved' ? 'Approved' : shown ? `Approve ${shown.length > 28 ? '' : shown}`.trim() : 'Approve'}
+          <motion.span key={r.current.state === 'approved' ? 'done' : 'todo'} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={soft} className="flex items-center gap-2">
+            {r.current.state === 'approved' ? <><Check className="size-5" strokeWidth={3} /> Approved</> : shown ? `Approve ${shown.length > 28 ? '' : shown}`.trim() : 'Approve'}
+          </motion.span>
         </Button>
         {r.current.state !== 'cleared' && (
           <Button variant="ghost" size="sm" className="self-center text-muted" onClick={() => act(() => clear({ resultId: r._id }), 'Cleared')}>
             Clear this answer
           </Button>
         )}
-      </div>
+      </motion.div>
 
       {r.raw.status === 'missing' && (
-        <div className="card flex items-center gap-3 px-4 py-3.5">
+        <motion.div variants={item} className="card flex items-center gap-3 px-4 py-3.5">
           <StatusIcon status="missing" />
           <p className="text-[15px] text-ink-2">No document mentions this, so it stays blank.</p>
-        </div>
+        </motion.div>
       )}
 
       {/* Source quotes */}
       {r.raw.status !== 'conflicting' && r.raw.evidence.length > 0 && (
-        <section aria-label="Source">
+        <motion.section variants={item} aria-label="Source">
           <p className="px-4 pb-1.5 text-[13px] text-muted">{r.raw.evidence.length > 1 ? 'Sources' : 'Source'}</p>
           <div className="card overflow-hidden">
             {r.raw.evidence.map((e, i) => {
@@ -253,12 +265,18 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence }
               )
             })}
           </div>
-        </section>
+        </motion.section>
       )}
 
       <Checks r={r} />
-    </article>
+    </motion.article>
   )
+}
+
+/** Each block of the answer pane rises in on a soft spring. */
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: soft },
 }
 
 function Checks({ r }: { r: FieldResultRow }) {
@@ -299,7 +317,7 @@ function Checks({ r }: { r: FieldResultRow }) {
   if (rows.length === 0) return null
 
   return (
-    <section aria-label="Checks">
+    <motion.section variants={item} aria-label="Checks">
       <p className="px-4 pb-1.5 text-[13px] text-muted">Checks</p>
       <div className="card overflow-hidden">
         {rows.map((row, i) => (
@@ -312,6 +330,6 @@ function Checks({ r }: { r: FieldResultRow }) {
           </div>
         ))}
       </div>
-    </section>
+    </motion.section>
   )
 }

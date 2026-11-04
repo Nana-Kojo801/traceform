@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { slideIn } from '@/lib/motion'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { ChevronLeft, Play } from 'lucide-react'
@@ -37,6 +38,16 @@ export function ProjectPage() {
   const tabParam = params.get('tab') as Tab | null
   const defaultTab: Tab = workspace?.selected ? 'review' : 'sources'
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : defaultTab
+
+  const contentRef = useRef<HTMLDivElement>(null)
+  const tabRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (tabRef.current && tabRef.current !== tab) {
+      const order = ['review', 'sources', 'form']
+      slideIn(contentRef.current, Math.sign(order.indexOf(tab) - order.indexOf(tabRef.current)) as 1 | -1)
+    }
+    tabRef.current = tab
+  }, [tab])
 
   const setTab = useCallback(
     (next: string) =>
@@ -153,7 +164,7 @@ export function ProjectPage() {
             {blocker && status && !workspace.selected && tab === 'review' && <span className="text-[13px] text-muted">{blocker}</span>}
             <div className="lg:hidden">{tabs}</div>
           </div>
-          <div className={cn('lg:min-h-0 lg:flex-1', tab === 'review' ? 'lg:overflow-hidden' : 'lg:overflow-auto')}>
+          <div ref={contentRef} className={cn('lg:min-h-0 lg:flex-1', tab === 'review' ? 'lg:overflow-hidden' : 'lg:overflow-auto')}>
             {tab === 'review' && <ReviewWorkspace documents={documents} schema={schema} workspace={workspace} onGoTo={setTab} />}
             {tab === 'sources' && <SourcesPanel projectId={projectId} documents={documents} />}
             {tab === 'form' && <FormBuilder projectId={projectId} schema={schema} />}

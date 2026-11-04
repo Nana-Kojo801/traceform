@@ -49,6 +49,8 @@ Sample files for upload testing are in [`public/samples`](public/samples). They 
 
 The interface is inspired by iOS but has its own identity: soft grouped cards on a warm grey background, black for actions, a yellow-green highlighter for quoted text, and numbered citation chips that tie each answer to its sentence in the source. Each screen has one large title, one status pill, and the content.
 
+Motion is iOS-like: spring physics for the sliding segmented controls, the moving selection in the field list, and content entering, plus the iOS sheet curve for dialogs (bottom sheets on phones). All of it honours the system Reduce Motion setting.
+
 Keyboard shortcuts on the review screen: `↑`/`↓` (or `j`/`k`) move between fields, `A` approves, `E` edits, `1`/`2` choose a value when sources disagree, `[`/`]` step through quotes, `/` searches, and `R` runs extraction. On phones, review splits into Fields, Answer and Source, with an Approve bar at the bottom.
 
 ## Architecture
@@ -127,7 +129,7 @@ Alternatively, build locally with `VITE_CONVEX_URL=<prod url> npm run build` and
 
 - **First commit:** 2026-11-04 17:49 UTC, during the event. The full history is in git.
 - **Original work (all written during the event):** the product concept implementation, the verification engine, the extraction, repair, and auditor pipeline, vision transcription, the prompts, the Convex schema and functions, the review UI, the exports, the sample documents and images (fictional, generated during the event), and the tests.
-- **Third-party libraries:** React, React Router, Vite, TypeScript, Tailwind CSS, Radix UI primitives (via shadcn/ui-style components), Lucide icons, Sonner (toasts), Convex, Zod, mammoth (DOCX text), pdfjs-dist (PDF text), clsx, tailwind-merge, class-variance-authority, and Vitest. Fonts: Geist and Geist Mono from Google Fonts.
+- **Third-party libraries:** React, React Router, Vite, TypeScript, Tailwind CSS, Radix UI primitives (via shadcn/ui-style components), Lucide icons, Sonner (toasts), Motion (animation), Convex, Zod, mammoth (DOCX text), pdfjs-dist (PDF text), clsx, tailwind-merge, class-variance-authority, and Vitest. Fonts: Geist and Geist Mono from Google Fonts.
 - **AI model:** Meta Muse Spark (`muse-spark-1.3`) through the Meta Model API.
 
 ## Known limitations

@@ -1,4 +1,6 @@
 import { useSearchParams } from 'react-router'
+import { AnimatePresence, motion } from 'motion/react'
+import { soft } from '@/lib/motion'
 import { relativeTime } from '@/lib/format'
 import type { Workspace } from './types'
 
@@ -8,9 +10,12 @@ export function RunStatus({ workspace, isDemo }: { workspace: Workspace; isDemo:
   const { latest, selected, runs } = workspace
   const completed = runs.filter((r) => r.status === 'completed')
   const pill = 'inline-flex h-8 max-w-full items-center gap-2 self-start rounded-full px-3.5 text-[13.5px]'
+  const key = latest?.status === 'running' ? 'running' : latest?.status === 'failed' ? 'failed' : selected ? `sel-${selected._id}` : 'none'
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2" aria-live="polite">
+      <AnimatePresence mode="popLayout" initial={false}>
+      <motion.span key={key} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={soft} className="inline-flex">
       {latest?.status === 'running' ? (
         <span className={`${pill} bg-ink font-medium text-white`}>
           <span className="size-2 animate-pulse rounded-full bg-hl" aria-hidden />
@@ -35,6 +40,8 @@ export function RunStatus({ workspace, isDemo }: { workspace: Workspace; isDemo:
       ) : (
         <span className={`${pill} bg-card text-muted shadow-[inset_0_0_0_1px_var(--line)]`}>{isDemo ? 'No result yet' : 'Not extracted yet'}</span>
       )}
+      </motion.span>
+      </AnimatePresence>
       {latest?.status === 'failed' && latest.error && <span className="truncate text-[13px] text-muted">{latest.error}</span>}
       {completed.length > 1 && selected && (
         <label className="relative">

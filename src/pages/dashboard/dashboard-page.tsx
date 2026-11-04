@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from 'convex/react'
+import { motion } from 'motion/react'
+import { fadeUp } from '@/lib/motion'
 import { Plus } from 'lucide-react'
 import { api } from '@convex/_generated/api'
 import { HomeBar } from '@/components/top-bar'
@@ -31,8 +33,10 @@ export function DashboardPage() {
       />
       <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-10 px-4 pb-14 pt-8 md:gap-11 md:px-8 md:pt-12">
         <Hero />
-        <WorkspaceStats projects={projects} />
-        <section className="flex flex-col gap-4">
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3}>
+          <WorkspaceStats projects={projects} />
+        </motion.div>
+        <motion.section variants={fadeUp} initial="hidden" animate="show" custom={4} className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-[20px] font-semibold tracking-[-0.015em]">Your projects</h2>
             {projects && projects.length > 2 && (
@@ -40,8 +44,10 @@ export function DashboardPage() {
             )}
           </div>
           <ProjectGrid projects={projects} query={query} />
-        </section>
-        <HowItWorks />
+        </motion.section>
+        <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5}>
+          <HowItWorks />
+        </motion.div>
         <p className="text-center text-[12.5px] text-muted">Demo built for the Meta AI Hackathon. Use fictional or non-sensitive data only.</p>
       </main>
     </>

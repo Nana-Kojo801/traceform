@@ -1,3 +1,6 @@
+import { useId } from 'react'
+import { motion } from 'motion/react'
+import { snap } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface Props<T extends string> {
@@ -10,8 +13,9 @@ interface Props<T extends string> {
   role?: 'tablist' | 'group'
 }
 
-/** Segmented control: fully round track with a white thumb. */
+/** Segmented control: round track, white thumb that slides on a spring. */
 export function Segmented<T extends string>({ value, onChange, options, label, className, size = 'default', role = 'group' }: Props<T>) {
+  const id = useId()
   return (
     <div role={role} aria-label={label} className={cn('inline-flex rounded-full bg-fill p-0.5', className)}>
       {options.map((o) => {
@@ -25,12 +29,13 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
             aria-pressed={role === 'group' ? on : undefined}
             onClick={() => onChange(o.value)}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full outline-none transition-colors focus-visible:outline-2 focus-visible:outline-ink',
+              'relative flex flex-1 items-center justify-center whitespace-nowrap rounded-full outline-none transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-ink active:scale-[0.97]',
               size === 'sm' ? 'h-7 px-3.5 text-[13px]' : 'h-8 px-5 text-[13.5px]',
-              on ? 'bg-card font-semibold text-ink shadow-[0_1px_3px_rgb(0_0_0/0.1)]' : 'font-medium text-ink-2 hover:text-ink',
+              on ? 'font-semibold text-ink' : 'font-medium text-ink-2 hover:text-ink',
             )}
           >
-            {o.label}
+            {on && <motion.span layoutId={`seg-${id}`} transition={snap} className="absolute inset-0 rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.12)]" aria-hidden />}
+            <span className="relative z-10 flex items-center gap-1.5">{o.label}</span>
           </button>
         )
       })}

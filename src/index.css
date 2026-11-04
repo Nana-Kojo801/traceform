@@ -150,6 +150,70 @@
   animation: trace-draw 600ms ease-out both;
 }
 
+/* iOS-like dialogs: scale in on desktop, sheet from the bottom on phones. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes sheet-in {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes sheet-out {
+  to {
+    translate: 0 100%;
+  }
+}
+.dialog-overlay[data-state='open'] {
+  animation: overlay-in 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dialog-overlay[data-state='closed'] {
+  animation: overlay-out 200ms ease-in forwards;
+}
+.dialog-content[data-state='open'] {
+  animation: dialog-in 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dialog-content[data-state='closed'] {
+  animation: dialog-out 180ms ease-in forwards;
+}
+@media (max-width: 639px) {
+  .dialog-content {
+    top: auto !important;
+    bottom: 0;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    translate: none;
+    border-radius: 20px 20px 0 0 !important;
+    padding-bottom: 32px !important;
+  }
+  .dialog-content[data-state='open'] {
+    animation: sheet-in 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .dialog-content[data-state='closed'] {
+    animation: sheet-out 240ms ease-in forwards;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

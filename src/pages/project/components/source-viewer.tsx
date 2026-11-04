@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from 'convex/react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { motion } from 'motion/react'
+import { snap, soft } from '@/lib/motion'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { Segmented } from '@/components/ui/segmented'
@@ -125,26 +127,29 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
                 onClick={() => onViewDoc(d._id)}
                 title={d.name}
                 className={cn(
-                  'flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] outline-none focus-visible:outline-2 focus-visible:outline-ink',
-                  selected ? 'bg-card font-semibold shadow-[0_1px_3px_rgb(0_0_0/0.08)]' : 'text-muted hover:bg-fill hover:text-ink',
+                  'relative flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] outline-none transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-ink active:scale-[0.97]',
+                  selected ? 'font-semibold text-ink' : 'text-muted hover:text-ink',
                 )}
               >
-                {nums.map((n) => (
-                  <span key={n} className="cite" style={{ verticalAlign: 0 }}>
-                    {n}
-                  </span>
-                ))}
-                {shortName(d.name)}
+                {selected && <motion.span layoutId={`doc-pill-${plain ? 'p' : 'r'}`} transition={snap} className="absolute inset-0 rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)]" aria-hidden />}
+                <span className="relative flex items-center gap-1.5">
+                  {nums.map((n) => (
+                    <span key={n} className="cite" style={{ verticalAlign: 0 }}>
+                      {n}
+                    </span>
+                  ))}
+                  {shortName(d.name)}
+                </span>
               </button>
             )
           })}
         </div>
         {!plain && verifiedIdx.length > 1 && (
           <div className="flex shrink-0 items-center gap-1.5">
-            <button onClick={() => step(-1)} aria-label="Previous quote ([)" className="grid size-8 place-items-center rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)] outline-none hover:bg-[#fafaf8] focus-visible:outline-2 focus-visible:outline-ink">
+            <button onClick={() => step(-1)} aria-label="Previous quote ([)" className="grid size-8 transition-transform active:scale-90 place-items-center rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)] outline-none hover:bg-[#fafaf8] focus-visible:outline-2 focus-visible:outline-ink">
               <ChevronLeft className="size-4" strokeWidth={2.6} />
             </button>
-            <button onClick={() => step(1)} aria-label="Next quote (])" className="grid size-8 place-items-center rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)] outline-none hover:bg-[#fafaf8] focus-visible:outline-2 focus-visible:outline-ink">
+            <button onClick={() => step(1)} aria-label="Next quote (])" className="grid size-8 transition-transform active:scale-90 place-items-center rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)] outline-none hover:bg-[#fafaf8] focus-visible:outline-2 focus-visible:outline-ink">
               <ChevronRight className="size-4" strokeWidth={2.6} />
             </button>
           </div>
@@ -179,18 +184,24 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
             </div>
           )}
           {(effectiveMode !== 'original' || !doc?.transcribed) && doc && (
-            <article className="card px-6 py-7 font-serif text-[16px] leading-[1.7] text-ink md:px-10 md:py-9">
+            <motion.article
+              key={doc._id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={soft}
+              className="card px-6 py-7 font-serif text-[16px] leading-[1.7] text-ink md:px-10 md:py-9"
+            >
               <div className="space-y-4">
                 {doc.segments.map((s) => {
                   const cited = marks.some((m) => m.end > s.start && m.start < s.end)
                   return (
-                    <p key={s.index} className={cn('whitespace-pre-wrap break-words', !plain && marks.length > 0 && !cited && 'text-[#8a8a8e]')}>
+                    <p key={s.index} className={cn('whitespace-pre-wrap break-words transition-colors duration-500', !plain && marks.length > 0 && !cited && 'text-[#8a8a8e]')}>
                       {renderSegment(doc.text, s.start, s.end, marks, active, onFocusEvidence)}
                     </p>
                   )
                 })}
               </div>
-            </article>
+            </motion.article>
           )}
         </div>
       </div>
