@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from 'convex/react'
-import { FileText, ScanEye } from 'lucide-react'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import { Kbd } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ActiveEvidence, DocumentRow, FieldResultRow } from './types'
 
@@ -12,15 +12,19 @@ interface Mark {
   evidenceIndex: number
 }
 
+export type SourceMode = 'text' | 'side' | 'original'
+
 interface Props {
   documents: DocumentRow[]
   viewDocId: string | null
   onViewDoc: (id: string) => void
-  result: FieldResultRow | undefined
+  result?: FieldResultRow
+  fieldLabel?: string
   active: ActiveEvidence | null
-  onFocusEvidence: (index: number) => void
-  /** Hide citation marks (used for plain previews). */
+  onFocusEvidence?: (index: number) => void
+  /** Plain preview: no citations, no citation navigation. */
   plain?: boolean
+  defaultMode?: SourceMode
 }
 
 function prefersReducedMotion() {
@@ -28,66 +32,60 @@ function prefersReducedMotion() {
 }
 
 /** Render one segment's text with citation marks, as plain React text (never HTML). */
-function renderSegment(text: string, segStart: number, segEnd: number, marks: Mark[], active: ActiveEvidence | null, tone: 'default' | 'conflict', onFocus: (i: number) => void) {
+function renderSegment(text: string, segStart: number, segEnd: number, marks: Mark[], active: ActiveEvidence | null, conflict: boolean, onFocus?: (i: number) => void) {
   const inSeg = marks
     .filter((m) => m.end > segStart && m.start < segEnd)
-    .map((m) => ({ ...m, start: Math.max(m.start, segStart), end: Math.min(m.end, segEnd) }))
+    .map((m) => ({ ...m, start: Math.max(m.start, segStart), end: Math.min(m.end, segEnd), endsHere: m.end <= segEnd }))
     .sort((a, b) => a.start - b.start)
-  const parts: React.ReactNode[] = []
+  const parts: ReactNode[] = []
   let cursor = segStart
   for (const m of inSeg) {
-    if (m.start < cursor) continue // overlapping citations: first one wins
+    if (m.start < cursor) continue
     if (m.start > cursor) parts.push(text.slice(cursor, m.start))
     const isActive = active?.index === m.evidenceIndex
     parts.push(
       <mark
         key={`${m.evidenceIndex}-${m.start}-${isActive ? active?.nonce : 'x'}`}
-        className="trace-mark cursor-pointer"
+        className="trace-mark"
         data-active={isActive ? 'true' : undefined}
-        data-tone={tone === 'conflict' ? 'conflict' : undefined}
-        onClick={() => onFocus(m.evidenceIndex)}
+        data-tone={conflict ? 'conflict' : undefined}
+        onClick={() => onFocus?.(m.evidenceIndex)}
       >
         {text.slice(m.start, m.end)}
       </mark>,
     )
+    if (m.endsHere) parts.push(<sup key={`fn-${m.evidenceIndex}-${m.start}`} className="fn text-ink">{m.evidenceIndex + 1}</sup>)
     cursor = m.end
   }
   if (cursor < segEnd) parts.push(text.slice(cursor, segEnd))
   return parts
 }
 
-export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, onFocusEvidence, plain }: Props) {
+export function SourceViewer({ documents, viewDocId, onViewDoc, result, fieldLabel, active, onFocusEvidence, plain, defaultMode = 'text' }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const parsed = documents.filter((d) => d.parseStatus === 'parsed')
   const doc = parsed.find((d) => d._id === viewDocId) ?? parsed[0]
-  const [showOriginal, setShowOriginal] = useState(false)
-  const images = useQuery(
-    api.documents.pageImages,
-    doc?.transcribed && showOriginal ? { documentId: doc._id as Id<'documents'> } : 'skip',
+  const [mode, setMode] = useState<SourceMode>(defaultMode)
+  const effectiveMode: SourceMode = doc?.transcribed ? mode : 'text'
+  const images = useQuery(api.documents.pageImages, doc?.transcribed && effectiveMode !== 'text' ? { documentId: doc._id as Id<'documents'> } : 'skip')
+
+  const evidence = useMemo(() => (plain ? [] : (result?.raw.evidence ?? [])), [plain, result])
+  const marks: Mark[] = useMemo(
+    () =>
+      evidence
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => e.sourceMatchVerified && e.documentId === doc?._id && e.startOffset !== null && e.endOffset !== null)
+        .map(({ e, i }) => ({ start: e.startOffset!, end: e.endOffset!, evidenceIndex: i })),
+    [evidence, doc],
   )
+  const verifiedIdx = evidence.map((e, i) => (e.sourceMatchVerified ? i : -1)).filter((i) => i >= 0)
 
-  const marks: Mark[] = useMemo(() => {
-    if (plain || !result || !doc) return []
-    return result.raw.evidence
-      .map((e, i) => ({ e, i }))
-      .filter(({ e }) => e.sourceMatchVerified && e.documentId === doc._id && e.startOffset !== null && e.endOffset !== null)
-      .map(({ e, i }) => ({ start: e.startOffset!, end: e.endOffset!, evidenceIndex: i }))
-  }, [plain, result, doc])
-
-  const citedDocs = useMemo(() => {
-    const s = new Set<string>()
-    result?.raw.evidence.forEach((e) => e.sourceMatchVerified && s.add(e.documentId))
-    return s
-  }, [result])
-
-  // Scroll the active citation into view whenever it changes.
   useEffect(() => {
     if (!active || !scrollRef.current) return
     const id = requestAnimationFrame(() => {
       const container = scrollRef.current
       const el = container?.querySelector<HTMLElement>('mark[data-active="true"]')
       if (!container || !el) return
-      // Scroll only the source pane (scrollIntoView would also scroll the window).
       const delta = el.getBoundingClientRect().top - container.getBoundingClientRect().top
       const top = container.scrollTop + delta - container.clientHeight / 2 + el.offsetHeight / 2
       container.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
@@ -97,21 +95,30 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
 
   if (parsed.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-border bg-surface p-8 text-center text-sm text-muted-foreground">
-        <FileText className="size-6 text-subtle-foreground" aria-hidden />
-        <p className="mt-2">No parsed source documents.</p>
+      <div className="flex h-full min-h-[320px] items-center justify-center bg-desk p-8">
+        <p className="cap">No parsed source documents</p>
       </div>
     )
   }
 
-  const tone = result?.raw.status === 'conflicting' ? 'conflict' : 'default'
-  const activeEvidence = active && result ? result.raw.evidence[active.index] : null
+  const conflict = result?.raw.status === 'conflicting'
+  const activeEv = active && result ? result.raw.evidence[active.index] : null
+  const activeSeg = activeEv && activeEv.documentId === doc?._id ? doc.segments.find((s) => s.index === activeEv.paragraphIndex) : null
+  const docNotes = marks.map((m) => ({ ...m, e: evidence[m.evidenceIndex] }))
+  const pos = active ? verifiedIdx.indexOf(active.index) : -1
+
+  const step = (dir: 1 | -1) => {
+    if (!verifiedIdx.length || !onFocusEvidence) return
+    const next = verifiedIdx[(pos + dir + verifiedIdx.length) % verifiedIdx.length]
+    onFocusEvidence(next)
+  }
 
   return (
-    <div className="flex h-full min-h-[420px] flex-col rounded-2xl border border-border bg-surface lg:min-h-0">
-      <div className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-border p-2" role="tablist" aria-label="Source documents">
+    <div className="flex h-full min-h-[480px] flex-col bg-desk lg:min-h-0">
+      <div role="tablist" aria-label="Source documents" className="scrollbar-thin flex shrink-0 gap-5 overflow-x-auto border-b border-line bg-white px-5 md:px-6">
         {parsed.map((d) => {
           const selected = d._id === doc?._id
+          const nums = evidence.map((e, i) => (e.sourceMatchVerified && e.documentId === d._id ? i + 1 : 0)).filter(Boolean)
           return (
             <button
               key={d._id}
@@ -119,60 +126,100 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
               aria-selected={selected}
               onClick={() => onViewDoc(d._id)}
               className={cn(
-                'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                selected ? 'bg-surface-3 text-foreground' : 'text-muted-foreground hover:bg-surface-2',
+                'flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 text-[13px] font-medium outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
+                selected ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink',
               )}
             >
-              <FileText className="size-3.5" aria-hidden />
-              <span className="max-w-[180px] truncate">{d.name}</span>
-              {!plain && citedDocs.has(d._id) && <span className="size-1.5 rounded-full bg-accent" aria-label="cited" />}
+              {d.name}
+              {nums.length > 0 && <span className="fn text-ink">{nums.join(' ')}</span>}
             </button>
           )
         })}
       </div>
+
       {doc?.transcribed && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-accent-soft/40 px-4 py-1.5 text-[11.5px] text-muted-foreground">
-          <ScanEye className="size-3.5 text-accent" aria-hidden />
-          <span>
-            <span className="font-medium text-foreground">Model transcription</span> by Muse Spark vision. Quotes are verified against
-            this transcription, not the original image.
-          </span>
-          <button
-            onClick={() => setShowOriginal((v) => !v)}
-            className="ml-auto rounded-full px-2 py-0.5 font-medium text-accent outline-none hover:bg-accent-soft focus-visible:ring-2 focus-visible:ring-ring"
-            aria-pressed={showOriginal}
-          >
-            {showOriginal ? 'Hide original' : 'Compare with original'}
-          </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 bg-hl px-5 py-2 md:px-6">
+          <p className="font-mono text-[11px] uppercase leading-snug tracking-[0.02em] text-ink">
+            Model transcription · quotes are verified against this text, not the image
+          </p>
+          <div role="group" aria-label="View" className="ml-auto flex gap-3.5 text-[12.5px]">
+            {(
+              [
+                ['text', 'Transcription'],
+                ['side', 'Side by side'],
+                ['original', 'Original'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                aria-pressed={effectiveMode === id}
+                onClick={() => setMode(id)}
+                className={cn('rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-ink', effectiveMode === id ? 'font-semibold underline decoration-2 underline-offset-4' : 'text-ink-2 hover:text-ink')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
-      {activeEvidence && activeEvidence.documentId === doc?._id && !plain && (
-        <p className="border-b border-border px-4 py-1.5 text-[11.5px] text-subtle-foreground">
-          Highlighted: verified quote for this field
-          {activeEvidence.paragraphIndex !== null && ` · paragraph ${activeEvidence.paragraphIndex + 1}`}
-          {activeEvidence.pageNumber !== null && ` · page ${activeEvidence.pageNumber}`}
-        </p>
-      )}
-      <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6" tabIndex={0} aria-label={`Text of ${doc?.name}`}>
-        {doc?.transcribed && showOriginal && (
-          <div className="mx-auto mb-4 max-w-[68ch] space-y-2">
-            {images === undefined && <div className="h-40 animate-pulse rounded-xl bg-surface-2" />}
-            {images?.map((src, i) => (
-              <img key={src} src={src} alt={`Original page ${i + 1} of ${doc.name}`} className="w-full rounded-xl border border-border" loading="lazy" />
-            ))}
-          </div>
-        )}
-        {doc && (
-          <div className="mx-auto max-w-[68ch] space-y-3 text-[13.5px] leading-[1.7] text-muted-foreground">
-            {doc.segments.map((s) => (
-              <p key={s.index} className="whitespace-pre-wrap break-words">
-                {s.pageNumber && doc.segments[s.index - 1]?.pageNumber !== s.pageNumber && (
-                  <span className="mr-2 select-none font-mono text-[10px] text-subtle-foreground">p.{s.pageNumber}</span>
+
+      <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-6 md:px-7 md:pt-7" tabIndex={0} aria-label={`Text of ${doc?.name}`}>
+        <div className={cn('mx-auto', effectiveMode === 'side' ? 'grid max-w-[1100px] gap-6 xl:grid-cols-2' : 'max-w-[580px]')}>
+          {doc?.transcribed && effectiveMode !== 'text' && (
+            <figure className="flex flex-col gap-2.5">
+              <figcaption className="cap">Original</figcaption>
+              {images === undefined && <div className="paper h-80 animate-pulse" />}
+              {images?.map((src, i) => (
+                <img key={src} src={src} alt={`Original page ${i + 1} of ${doc.name}`} className="paper w-full" loading="lazy" />
+              ))}
+            </figure>
+          )}
+          {(effectiveMode !== 'original' || !doc?.transcribed) && doc && (
+            <div className="flex flex-col gap-2.5">
+              {doc.transcribed && effectiveMode === 'side' && <span className="cap">Transcription</span>}
+              <article className="paper px-7 pb-12 pt-9 font-serif text-[15.5px] leading-[1.7] text-[#26272b] md:px-12 md:pt-11">
+                <div className="space-y-3.5">
+                  {doc.segments.map((s) => {
+                    const cited = marks.some((m) => m.end > s.start && m.start < s.end)
+                    const newPage = s.pageNumber && doc.segments[s.index - 1]?.pageNumber !== s.pageNumber
+                    return (
+                      <p key={s.index} className={cn('whitespace-pre-wrap break-words', !plain && marks.length > 0 && !cited && 'text-muted')}>
+                        {newPage && <span className="mr-2 select-none font-mono text-[10px] text-faint">p.{s.pageNumber}</span>}
+                        {renderSegment(doc.text, s.start, s.end, marks, active, conflict, onFocusEvidence)}
+                      </p>
+                    )
+                  })}
+                </div>
+                {docNotes.length > 0 && (
+                  <ol className="mt-9 w-full max-w-[360px] border-t border-ink pt-2.5 font-mono text-[10.5px] leading-[1.6] text-ink-2">
+                    {docNotes.map((n) => (
+                      <li key={n.evidenceIndex}>
+                        <b>{n.evidenceIndex + 1}</b>&nbsp;&nbsp;{fieldLabel}
+                        {conflict && ` · side ${String.fromCharCode(65 + n.evidenceIndex)}`} · verified at chars {n.start}–{n.end}
+                      </li>
+                    ))}
+                  </ol>
                 )}
-                {renderSegment(doc.text, s.start, s.end, marks, active, tone, onFocusEvidence)}
-              </p>
-            ))}
-          </div>
+              </article>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-white px-5 py-2 font-mono text-[11px] uppercase text-muted md:px-6">
+        <span className="truncate">
+          {activeSeg ? `¶${activeSeg.index + 1} of ${doc.segments.length}` : `${doc?.segments.length ?? 0} ¶`} · {doc?.text.length.toLocaleString()} chars
+        </span>
+        {!plain && verifiedIdx.length > 0 && (
+          <span className="flex shrink-0 items-center gap-2">
+            Citation {pos + 1 || '–'} of {verifiedIdx.length}
+            <button onClick={() => step(-1)} aria-label="Previous citation" className="rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-ink">
+              <Kbd>[</Kbd>
+            </button>
+            <button onClick={() => step(1)} aria-label="Next citation" className="rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-ink">
+              <Kbd>]</Kbd>
+            </button>
+          </span>
         )}
       </div>
     </div>

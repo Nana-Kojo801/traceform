@@ -1,30 +1,27 @@
-import { useRef, type KeyboardEvent } from 'react'
-import { MessageSquareWarning, Search, Wrench } from 'lucide-react'
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
+import { Search, X } from 'lucide-react'
 import type { FieldStatus, FormField } from '@shared/types'
-import { Input } from '@/components/ui/input'
-import { ReviewBadge, StatusBadge } from '@/components/status-badge'
+import { STATUS_META } from '@/components/status-badge'
+import { Kbd } from '@/components/ui/button'
 import { formatValue } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { FieldResultRow, SchemaRow } from './types'
 
-export type StatusFilter = 'all' | 'attention' | FieldStatus | 'unreviewed'
+export type StatusFilter = 'open' | 'all' | FieldStatus
 
-const FILTERS: { id: StatusFilter; label: string }[] = [
+export const FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'open', label: 'Open' },
   { id: 'all', label: 'All' },
-  { id: 'attention', label: 'Needs attention' },
-  { id: 'unreviewed', label: 'Unreviewed' },
   { id: 'supported', label: 'Supported' },
   { id: 'conflicting', label: 'Conflict' },
-  { id: 'missing', label: 'Missing' },
+  { id: 'missing', label: 'Blank' },
   { id: 'needs_review', label: 'Needs review' },
 ]
 
-function matchesFilter(r: FieldResultRow | undefined, filter: StatusFilter) {
+export function matchesFilter(r: FieldResultRow | undefined, filter: StatusFilter) {
   if (filter === 'all') return true
-  if (!r) return filter === 'attention'
-  if (filter === 'unreviewed') return r.current.state === 'unreviewed'
-  if (filter === 'attention')
-    return (r.raw.status === 'needs_review' || r.raw.status === 'conflicting') && r.current.state === 'unreviewed'
+  if (!r) return filter === 'open'
+  if (filter === 'open') return r.current.state === 'unreviewed'
   return r.raw.status === filter
 }
 
@@ -36,101 +33,175 @@ export function previewValue(field: FormField, r: FieldResultRow | undefined): {
     const vals = [...new Set(r.raw.evidence.map((e) => e.claimedValue).filter(Boolean) as string[])]
     return { text: vals.map((v) => formatValue(v, field.type)).join(' vs '), muted: false }
   }
-  if (r.raw.status === 'missing') return { text: 'Blank: not documented', muted: true }
+  if (r.raw.status === 'missing') return { text: 'Not stated in any source', muted: true }
   return { text: 'No verified value', muted: true }
+}
+
+const SELECTED_MARK: Record<FieldStatus, string> = {
+  supported: 'text-[#86efac]',
+  conflicting: 'text-[#fdba74]',
+  missing: 'text-[#c4c5ca]',
+  needs_review: 'text-[#fca5a5]',
 }
 
 interface Props {
   schema: SchemaRow
   resultsByField: Map<string, FieldResultRow>
+  visibleIds: string[]
   selectedId: string | null
   onSelect: (id: string) => void
   filter: StatusFilter
   onFilter: (f: StatusFilter) => void
   search: string
   onSearch: (s: string) => void
+  searchOpen: boolean
+  onSearchOpen: (open: boolean) => void
+  searchRef: RefObject<HTMLInputElement | null>
 }
 
-export function FieldList({ schema, resultsByField, selectedId, onSelect, filter, onFilter, search, onSearch }: Props) {
+export function FieldList(props: Props) {
+  const { schema, resultsByField, visibleIds, selectedId, onSelect, filter, onFilter, search, onSearch, searchOpen, onSearchOpen, searchRef } = props
   const listRef = useRef<HTMLDivElement>(null)
   const fields = schema?.fields ?? []
   const sections = schema?.sections ?? []
-  const q = search.trim().toLowerCase()
+  const index = new Map(fields.map((f, i) => [f.id, i + 1]))
+  const visible = new Set(visibleIds)
 
-  const visible = fields.filter((f) => {
-    const r = resultsByField.get(f.id)
-    if (!matchesFilter(r, filter)) return false
-    if (!q) return true
-    return f.label.toLowerCase().includes(q) || (r?.current.value ?? '').toLowerCase().includes(q)
-  })
-  const reviewed = fields.filter((f) => {
-    const s = resultsByField.get(f.id)?.current.state
-    return s && s !== 'unreviewed'
-  }).length
-  const pct = fields.length ? Math.round((reviewed / fields.length) * 100) : 0
+  const results = fields.map((f) => resultsByField.get(f.id))
+  const reviewed = results.filter((r) => r && r.current.state !== 'unreviewed').length
+
+  // Keep the selected row in view.
+  useEffect(() => {
+    if (!selectedId) return
+    listRef.current?.querySelector<HTMLElement>(`[data-field-id="${selectedId}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     e.preventDefault()
-    const ids = visible.map((f) => f.id)
-    if (ids.length === 0) return
-    const cur = selectedId ? ids.indexOf(selectedId) : -1
+    if (visibleIds.length === 0) return
+    const cur = selectedId ? visibleIds.indexOf(selectedId) : -1
     const next =
-      e.key === 'Home' ? 0 : e.key === 'End' ? ids.length - 1 : e.key === 'ArrowDown' ? Math.min(ids.length - 1, cur + 1) : Math.max(0, cur - 1)
-    onSelect(ids[next])
-    requestAnimationFrame(() => {
-      listRef.current?.querySelector<HTMLButtonElement>(`[data-field-id="${ids[next]}"]`)?.focus()
-    })
+      e.key === 'Home' ? 0 : e.key === 'End' ? visibleIds.length - 1 : e.key === 'ArrowDown' ? Math.min(visibleIds.length - 1, cur + 1) : Math.max(0, cur - 1)
+    onSelect(visibleIds[next])
+    requestAnimationFrame(() => listRef.current?.querySelector<HTMLButtonElement>(`[data-field-id="${visibleIds[next]}"]`)?.focus())
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-surface">
-      <div className="space-y-2.5 border-b border-border p-3">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-medium">Review progress</span>
-          <span className="text-muted-foreground">
-            {reviewed} of {fields.length} reviewed
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-col gap-3 border-b border-line px-4 pb-3.5 pt-[18px]">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Fields</h2>
+          <span className="flex items-center gap-2 font-mono text-xs text-ink-2">
+            {reviewed} / {fields.length} reviewed
+            {!searchOpen && (
+              <button aria-label="Search fields" onClick={() => onSearchOpen(true)} className="grid size-7 place-items-center rounded-[6px] text-ink-2 hover:bg-wash">
+                <Search className="size-[15px]" />
+              </button>
+            )}
           </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Review progress">
-          <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-subtle-foreground" aria-hidden />
-          <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search fields or values" className="h-8 rounded-full pl-8 text-[13px]" aria-label="Search fields" />
-        </div>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
-          {FILTERS.map((f) => {
-            const count = fields.filter((fld) => matchesFilter(resultsByField.get(fld.id), f.id)).length
+        {/* One cell per field: ink = reviewed, outline = open, highlighter = selected. */}
+        <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${Math.max(1, fields.length)}, minmax(0, 1fr))` }}>
+          {fields.map((f, i) => {
+            const r = results[i]
+            const done = r && r.current.state !== 'unreviewed'
             return (
               <button
                 key={f.id}
-                onClick={() => onFilter(f.id)}
-                aria-pressed={filter === f.id}
+                tabIndex={-1}
+                aria-label={`${f.label}${done ? ', reviewed' : ', open'}`}
+                onClick={() => onSelect(f.id)}
                 className={cn(
-                  'h-6 rounded-full px-2 text-[11.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                  filter === f.id ? 'bg-accent-soft text-accent' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+                  'h-1.5 cursor-pointer',
+                  f.id === selectedId ? 'bg-hl shadow-[inset_0_0_0_1px_var(--ink)]' : done ? 'bg-ink' : 'shadow-[inset_0_0_0_1px_#c4c5ca]',
                 )}
-              >
-                {f.label} <span className="opacity-60">{count}</span>
-              </button>
+              />
             )
           })}
         </div>
+        {searchOpen ? (
+          <label className="flex h-[30px] items-center gap-2 border-b border-ink">
+            <Search className="size-3.5 text-muted" aria-hidden />
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  onSearch('')
+                  onSearchOpen(false)
+                }
+              }}
+              placeholder="Search fields or values"
+              aria-label="Search fields"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[13px] outline-none"
+            />
+            <button
+              aria-label="Close search"
+              onClick={() => {
+                onSearch('')
+                onSearchOpen(false)
+              }}
+              className="grid size-6 place-items-center rounded-[6px] hover:bg-wash"
+            >
+              <X className="size-3.5" />
+            </button>
+          </label>
+        ) : (
+          <div role="group" aria-label="Filter fields" className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px]">
+            {FILTERS.map((f) => {
+              const count = fields.filter((fld) => matchesFilter(resultsByField.get(fld.id), f.id)).length
+              if (count === 0 && f.id !== 'open' && f.id !== 'all') return null
+              const on = filter === f.id
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => onFilter(f.id)}
+                  aria-pressed={on}
+                  className={cn(
+                    'rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-ink',
+                    on ? 'font-semibold text-ink underline decoration-2 underline-offset-[6px]' : 'text-muted hover:text-ink',
+                  )}
+                >
+                  {f.label} {count}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      <div ref={listRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-1.5" onKeyDown={onKeyDown} role="listbox" aria-label="Fields" aria-activedescendant={selectedId ? `field-${selectedId}` : undefined}>
-        {visible.length === 0 && <p className="px-3 py-8 text-center text-[13px] text-muted-foreground">No fields match.</p>}
+      <div
+        ref={listRef}
+        className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
+        onKeyDown={onKeyDown}
+        role="listbox"
+        aria-label="Fields"
+        aria-activedescendant={selectedId ? `field-${selectedId}` : undefined}
+      >
+        {visibleIds.length === 0 && (
+          <div className="px-4 py-10">
+            <p className="text-[13.5px] font-medium">{filter === 'open' && !search ? 'All fields reviewed.' : 'No fields match.'}</p>
+            {filter !== 'all' && (
+              <button onClick={() => onFilter('all')} className="mt-1 text-[13px] text-muted underline underline-offset-4 hover:text-ink">
+                Show all fields
+              </button>
+            )}
+          </div>
+        )}
         {sections.map((s) => {
-          const inSection = visible.filter((f) => f.sectionId === s.id)
+          const inSection = fields.filter((f) => f.sectionId === s.id && visible.has(f.id))
           if (inSection.length === 0) return null
           return (
-            <div key={s.id} className="mb-1.5">
-              <p className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">{s.title}</p>
+            <div key={s.id}>
+              <p className="cap px-4 pb-1.5 pt-4">{s.title}</p>
               {inSection.map((f) => {
                 const r = resultsByField.get(f.id)
                 const preview = previewValue(f, r)
                 const selected = f.id === selectedId
+                const meta = r ? STATUS_META[r.raw.status] : null
+                const mono = f.type === 'number' || f.type === 'date' || /@/.test(preview.text)
                 return (
                   <button
                     key={f.id}
@@ -138,32 +209,44 @@ export function FieldList({ schema, resultsByField, selectedId, onSelect, filter
                     data-field-id={f.id}
                     role="option"
                     aria-selected={selected}
-                    tabIndex={selected || (!selectedId && f === visible[0]) ? 0 : -1}
+                    tabIndex={selected || (!selectedId && f.id === visibleIds[0]) ? 0 : -1}
                     onClick={() => onSelect(f.id)}
                     className={cn(
-                      'group relative flex w-full flex-col gap-1 rounded-xl px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                      selected ? 'bg-surface-3' : 'hover:bg-surface-2',
+                      'grid w-full grid-cols-[26px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-1 border-b px-4 py-[11px] text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2',
+                      selected ? 'border-ink bg-ink text-white focus-visible:outline-hl' : 'border-line-soft hover:bg-wash focus-visible:outline-ink',
                     )}
                   >
-                    {selected && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" aria-hidden />}
-                    <span className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-                        {f.label}
-                        {f.required && <span className="ml-0.5 text-subtle-foreground" aria-label="required">*</span>}
-                      </span>
-                      {r?.raw.audit?.verdict === 'disagrees' && (
-                        <MessageSquareWarning className="size-3.5 text-review" aria-label="Model second opinion disagrees" />
+                    <span className={cn('font-mono text-[11px]', selected ? 'text-faint' : 'text-faint')}>{String(index.get(f.id)).padStart(2, '0')}</span>
+                    <span className={cn('truncate text-[13.5px]', selected ? 'font-semibold' : 'font-medium')}>
+                      {f.label}
+                      {f.required && (
+                        <span className="text-faint" aria-label="required">
+                          {' '}
+                          *
+                        </span>
                       )}
-                      {r?.raw.repair?.outcome === 'fixed' && (
-                        <Wrench className="size-3.5 text-accent" aria-label="Fixed on second pass" />
-                      )}
-                      {r && <StatusBadge status={r.raw.status} />}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className={cn('min-w-0 flex-1 truncate text-xs', preview.muted ? 'italic text-subtle-foreground' : 'text-muted-foreground')}>
-                        {preview.text}
-                      </span>
-                      {r && <ReviewBadge state={r.current.state} />}
+                      {r && r.current.state !== 'unreviewed' && (
+                        <span className={cn('font-mono text-[10.5px] uppercase', selected ? 'text-white' : 'text-ink')} title={`Reviewed: ${r.current.state}`}>
+                          ■
+                        </span>
+                      )}
+                      {meta && (
+                        <span className={cn('font-mono text-[11px] font-medium uppercase', selected ? SELECTED_MARK[r!.raw.status] : meta.color)}>
+                          {meta.glyph} {r!.raw.repair?.outcome === 'fixed' ? '↻' : meta.short}
+                        </span>
+                      )}
+                    </span>
+                    <span />
+                    <span
+                      className={cn(
+                        'col-span-2 truncate text-[12.5px]',
+                        mono && 'font-mono text-[12px]',
+                        preview.muted ? (selected ? 'text-faint' : 'text-faint') : selected ? 'text-[#c4c5ca]' : 'text-muted',
+                      )}
+                    >
+                      {preview.text}
                     </span>
                   </button>
                 )
@@ -171,6 +254,20 @@ export function FieldList({ schema, resultsByField, selectedId, onSelect, filter
             </div>
           )
         })}
+      </div>
+      <div className="hidden flex-wrap gap-x-3.5 gap-y-1 border-t border-line px-4 py-2.5 font-mono text-[11px] text-muted lg:flex">
+        <span>
+          <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+        </span>
+        <span>
+          <Kbd>A</Kbd> approve
+        </span>
+        <span>
+          <Kbd>E</Kbd> edit
+        </span>
+        <span>
+          <Kbd>/</Kbd> search
+        </span>
       </div>
     </div>
   )

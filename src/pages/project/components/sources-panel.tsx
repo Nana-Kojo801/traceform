@@ -1,11 +1,9 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { useAction, useMutation } from 'convex/react'
-import { AlertTriangle, CircleCheck, Download, Eye, FileText, Image as ImageIcon, Loader2, ScanEye, ScanLine, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { MAX_DOCUMENTS_PER_PROJECT, MAX_FILE_BYTES, MAX_TOTAL_CHARS, MAX_TRANSCRIBE_PAGES } from '@shared/limits'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { parseFile, renderForVision, validateFile } from '@/lib/parse-file'
 import { formatBytes } from '@/lib/format'
@@ -13,6 +11,7 @@ import { pageCount } from '@shared/segments'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { SourceViewer } from './source-viewer'
+import { X } from 'lucide-react'
 import type { DocumentRow } from './types'
 
 const SAMPLE_FILES = [
@@ -105,11 +104,82 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
     handleFiles(e.dataTransfer.files)
   }
 
-  const preview = documents.find((d) => d._id === previewId && d.parseStatus === 'parsed')
+  const parsedDocs = documents.filter((d) => d.parseStatus === 'parsed')
+  const preview = parsedDocs.find((d) => d._id === previewId) ?? parsedDocs[0]
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:h-full lg:grid-cols-[440px_minmax(0,1fr)]">
+      <section aria-label="Documents" className="flex min-h-0 flex-col border-line lg:overflow-y-auto lg:border-r">
+        <div className="flex items-baseline justify-between gap-3 border-b border-line px-5 pb-[18px] pt-[22px]">
+          <h2 className="text-[15px] font-semibold">Sources</h2>
+          <span className={cn('font-mono text-xs', totalChars > MAX_TOTAL_CHARS ? 'text-review' : 'text-ink-2')}>
+            {documents.length} / {MAX_DOCUMENTS_PER_PROJECT} files · {totalChars.toLocaleString()} / {MAX_TOTAL_CHARS.toLocaleString()} chars
+          </span>
+        </div>
+
+        {documents.length === 0 && pending.length === 0 && <p className="border-b border-line px-5 py-5 text-[13.5px] text-muted">No documents yet.</p>}
+        <ul>
+          {documents.map((d) => {
+            const ext = d.kind === 'image' ? (d.name.split('.').pop() ?? 'img').toUpperCase() : d.kind.toUpperCase()
+            const selected = preview?._id === d._id
+            const pages = pageCount(d.segments)
+            return (
+              <li key={d._id} className={cn('grid grid-cols-[44px_minmax(0,1fr)_auto] items-start gap-3.5 border-b border-line px-5 py-4', selected && 'bg-wash')}>
+                <span className={cn('pt-0.5 font-mono text-[11px] font-medium tracking-[0.04em]', d.parseStatus === 'parsed' ? 'text-ink' : 'text-faint')}>{ext.slice(0, 4)}</span>
+                <button
+                  onClick={() => d.parseStatus === 'parsed' && setPreviewId(d._id)}
+                  disabled={d.parseStatus !== 'parsed'}
+                  className="flex min-w-0 flex-col gap-1 text-left outline-none focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-default"
+                  aria-label={d.parseStatus === 'parsed' ? `Preview ${d.name}` : d.name}
+                >
+                  <span className="truncate text-sm font-medium">{d.name}</span>
+                  <span className="font-mono text-[11.5px] text-muted">
+                    {formatBytes(d.sizeBytes)}
+                    {d.parseStatus === 'parsed' && ` · ${d.text.length.toLocaleString()} chars · ${plural(pages || d.segments.length, pages ? 'page' : 'paragraph')}`}
+                  </span>
+                  {d.transcribed && (
+                    <span className="font-mono text-[11.5px] text-ink">
+                      <span className="hl">◉ MODEL TRANSCRIPTION</span>
+                      {d.transcriptionNote && <span className="text-muted"> · “{d.transcriptionNote}”</span>}
+                    </span>
+                  )}
+                  {d.parseStatus === 'parsed' && !d.transcribed && <span className="font-mono text-[11.5px] text-ok">✓ PARSED IN BROWSER</span>}
+                  {d.parseStatus === 'needs_ocr' && <span className="font-mono text-[11.5px] text-conflict">— NEEDS TRANSCRIPTION</span>}
+                  {d.parseStatus === 'failed' && <span className="font-mono text-[11.5px] text-review">! FAILED</span>}
+                  {d.parseError && <span className="text-[12.5px] leading-snug text-review">{d.parseError}</span>}
+                </button>
+                <button
+                  aria-label={`Remove ${d.name}`}
+                  className="grid size-8 place-items-center rounded-[6px] text-faint outline-none hover:bg-white hover:text-review focus-visible:outline-2 focus-visible:outline-ink"
+                  onClick={async () => {
+                    if (!confirm(`Remove ${d.name}? Past results that cite it will show “Removed document”.`)) return
+                    try {
+                      await remove({ documentId: d._id })
+                      if (previewId === d._id) setPreviewId(null)
+                    } catch (err) {
+                      toast.error(errorMessage(err))
+                    }
+                  }}
+                >
+                  <X className="size-4" />
+                </button>
+              </li>
+            )
+          })}
+          {pending.map((p) => (
+            <li key={p.key} className="grid grid-cols-[44px_minmax(0,1fr)] gap-3.5 border-b border-line px-5 py-4">
+              <span className="pt-0.5 font-mono text-[11px] text-faint">{(p.name.split('.').pop() ?? '').toUpperCase().slice(0, 4)}</span>
+              <div className="flex min-w-0 flex-col gap-2">
+                <span className="truncate text-sm font-medium">{p.name}</span>
+                <span className="working font-mono text-[11.5px] uppercase text-ink-2">{p.stage}</span>
+                <span className="h-[3px] w-full overflow-hidden bg-line">
+                  <span className="block h-full w-1/3 animate-pulse bg-ink" />
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+
         <div
           onDragOver={(e) => {
             e.preventDefault()
@@ -118,16 +188,15 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={cn(
-            'flex flex-col items-center rounded-2xl border border-dashed px-4 py-8 text-center transition-colors',
-            dragging ? 'border-accent bg-accent-soft' : 'border-border-strong bg-surface',
+            'm-5 flex flex-col items-center gap-2.5 rounded-[6px] border border-dashed px-5 py-7 text-center transition-colors',
+            dragging ? 'border-ink bg-hl' : 'border-[#a9abb2]',
           )}
         >
-          <Upload className="size-6 text-accent" aria-hidden />
-          <p className="mt-2 text-sm font-medium">Drop TXT, DOCX, PDF, or photos of pages</p>
-          <p className="mt-1 text-xs text-subtle-foreground">
-            Up to {MAX_DOCUMENTS_PER_PROJECT} files, {MAX_FILE_BYTES / 1024} KB each for text files. Text is extracted in your browser.
-          </p>
-          <Button className="mt-4" variant="secondary" size="sm" onClick={() => inputRef.current?.click()} disabled={slots <= 0}>
+          <span className="text-[15px] font-semibold">Drop files here</span>
+          <span className="max-w-[320px] text-[13px] leading-relaxed text-muted">
+            TXT, DOCX and PDF are read in your browser. Photos and scanned PDFs (first {MAX_TRANSCRIBE_PAGES} pages) are transcribed by Muse Spark vision.
+          </span>
+          <Button className="mt-1" onClick={() => inputRef.current?.click()} disabled={slots <= 0}>
             Choose files
           </Button>
           <input
@@ -142,139 +211,35 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
               e.target.value = ''
             }}
           />
-          <p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-subtle-foreground">
-            Photos and scanned PDFs (first {MAX_TRANSCRIBE_PAGES} pages) are transcribed by Muse Spark vision and labeled
-            “model transcription”. Citations are verified against that transcription, not the image.
+          <span className="font-mono text-[10.5px] uppercase text-faint">
+            Max {MAX_FILE_BYTES / 1024} KB per text file · fictional or non-sensitive data only
+          </span>
+        </div>
+
+        <div className="mx-5 mb-5 mt-auto border-t border-line pt-3">
+          <p className="cap mb-1.5">Sample files</p>
+          <p className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11.5px]">
+            {SAMPLE_FILES.map((f) => (
+              <a key={f.href} href={f.href} download className="text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink">
+                {f.name}
+              </a>
+            ))}
           </p>
         </div>
+      </section>
 
-        <div className="rounded-2xl border border-border bg-surface">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5 text-xs">
-            <span className="font-medium">
-              Documents {documents.length}/{MAX_DOCUMENTS_PER_PROJECT}
-            </span>
-            <span className={cn('text-subtle-foreground', totalChars > MAX_TOTAL_CHARS && 'text-review')}>
-              {totalChars.toLocaleString()} / {MAX_TOTAL_CHARS.toLocaleString()} characters
-            </span>
-          </div>
-          {documents.length === 0 && pending.length === 0 && (
-            <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">No documents yet.</p>
-          )}
-          <ul className="divide-y divide-border">
-            {documents.map((d) => (
-              <li key={d._id} className={cn('flex items-start gap-3 px-4 py-3', previewId === d._id && 'bg-surface-2')}>
-                {d.transcribed ? (
-                  <ScanEye className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
-                ) : d.kind === 'image' ? (
-                  <ImageIcon className="mt-0.5 size-4 shrink-0 text-review" aria-hidden />
-                ) : d.parseStatus === 'needs_ocr' ? (
-                  <ScanLine className="mt-0.5 size-4 shrink-0 text-conflicting" aria-hidden />
-                ) : d.parseStatus === 'failed' ? (
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-review" aria-hidden />
-                ) : (
-                  <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[13px] font-medium">{d.name}</span>
-                    <Badge tone="outline" className="uppercase">
-                      {d.kind}
-                    </Badge>
-                    {d.parseStatus === 'parsed' && !d.transcribed && (
-                      <Badge tone="supported">
-                        <CircleCheck aria-hidden /> Parsed
-                      </Badge>
-                    )}
-                    {d.transcribed && (
-                      <Badge tone="accent" title="Text produced by Muse Spark vision. Quotes are verified against this transcription.">
-                        <ScanEye aria-hidden /> Model transcription
-                      </Badge>
-                    )}
-                    {d.parseStatus === 'needs_ocr' && <Badge tone="conflicting">Needs transcription</Badge>}
-                    {d.parseStatus === 'failed' && <Badge tone="review">Failed</Badge>}
-                  </div>
-                  <p className="mt-0.5 text-xs text-subtle-foreground">
-                    {formatBytes(d.sizeBytes)}
-                    {d.parseStatus === 'parsed' &&
-                      ` · ${d.text.length.toLocaleString()} chars · ${plural(pageCount(d.segments) || d.segments.length, pageCount(d.segments) ? 'page' : 'paragraph')}`}
-                  </p>
-                  {d.transcriptionNote && <p className="mt-1 text-xs text-muted-foreground">Transcription note: {d.transcriptionNote}</p>}
-                  {d.parseError && <p className="mt-1 text-xs text-review">{d.parseError}</p>}
-                </div>
-                <div className="flex shrink-0 gap-0.5">
-                  {d.parseStatus === 'parsed' && (
-                    <Button variant="ghost" size="icon-sm" aria-label={`Preview ${d.name}`} onClick={() => setPreviewId(d._id)}>
-                      <Eye />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove ${d.name}`}
-                    onClick={async () => {
-                      if (!confirm(`Remove ${d.name}? Past results that cite it will show “Removed document”.`)) return
-                      try {
-                        await remove({ documentId: d._id })
-                        if (previewId === d._id) setPreviewId(null)
-                      } catch (err) {
-                        toast.error(errorMessage(err))
-                      }
-                    }}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              </li>
-            ))}
-            {pending.map((p) => (
-              <li key={p.key} className="flex items-center gap-3 px-4 py-3 text-[13px] text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-accent" aria-hidden />
-                {p.stage} · {p.name}…
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-surface px-4 py-3">
-          <p className="text-xs font-medium">Sample files for upload testing</p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
-            {SAMPLE_FILES.map((f) => (
-              <li key={f.href}>
-                <a
-                  href={f.href}
-                  download
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-                >
-                  <Download className="size-3.5" aria-hidden />
-                  {f.name}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="min-h-[420px] lg:h-[calc(100dvh-15.5rem)] lg:min-h-[520px]">
+      <section aria-label="Preview" className="min-h-[520px] min-w-0 lg:min-h-0">
         {preview ? (
-          <SourceViewer
-            documents={documents}
-            viewDocId={preview._id}
-            onViewDoc={setPreviewId}
-            result={undefined}
-            active={null}
-            onFocusEvidence={() => {}}
-            plain
-          />
+          <SourceViewer key={preview._id} documents={documents} viewDocId={preview._id} onViewDoc={setPreviewId} active={null} plain defaultMode={preview.transcribed ? 'side' : 'text'} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-border bg-surface p-8 text-center">
-            <Eye className="size-6 text-subtle-foreground" aria-hidden />
-            <p className="mt-2 text-sm font-medium">Extracted text preview</p>
-            <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">
-              Select the eye icon on a document to see exactly the text the model and the verifier will read.
+          <div className="flex h-full min-h-[520px] flex-col items-start justify-center gap-2 bg-desk px-10">
+            <p className="cap">Preview</p>
+            <p className="max-w-sm font-serif text-[17px] leading-relaxed text-ink-2">
+              Exactly the text the model and the verifier will read appears here, page by page.
             </p>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

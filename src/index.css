@@ -1,133 +1,197 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:is(.dark *));
-
+/* Ledger design system: rules, not cards; ink, not tints; one highlighter.
+   Boxed controls use a 6px radius. Panes, rows, paper and cells stay square. */
 :root {
-  color-scheme: dark;
-  --background: oklch(0.165 0.004 260);
-  --surface: oklch(0.198 0.005 260);
-  --surface-2: oklch(0.232 0.006 260);
-  --surface-3: oklch(0.27 0.007 260);
-  --border: oklch(0.3 0.007 260);
-  --border-strong: oklch(0.38 0.008 260);
-  --foreground: oklch(0.955 0.003 260);
-  --muted-foreground: oklch(0.7 0.01 260);
-  --subtle-foreground: oklch(0.56 0.01 260);
-  --accent: oklch(0.82 0.11 185);
-  --accent-strong: oklch(0.74 0.12 185);
-  --accent-foreground: oklch(0.2 0.03 190);
-  --accent-soft: oklch(0.82 0.11 185 / 0.14);
-  --ring: oklch(0.82 0.11 185 / 0.6);
-
-  --supported: oklch(0.78 0.13 155);
-  --supported-soft: oklch(0.78 0.13 155 / 0.13);
-  --conflicting: oklch(0.82 0.13 75);
-  --conflicting-soft: oklch(0.82 0.13 75 / 0.14);
-  --missing: oklch(0.72 0.01 260);
-  --missing-soft: oklch(0.72 0.01 260 / 0.12);
-  --review: oklch(0.72 0.16 30);
-  --review-soft: oklch(0.72 0.16 30 / 0.14);
-
-  --highlight: oklch(0.82 0.11 185 / 0.28);
-  --highlight-conflict: oklch(0.82 0.13 75 / 0.3);
+  color-scheme: light;
+  --ink: #0b0b0c;
+  --ink-2: #3f4147;
+  --muted: #6b6e76;
+  --faint: #9a9ca3;
+  --line: #e6e6e8;
+  --line-soft: #efeff1;
+  --line-strong: #d4d4d8;
+  --desk: #efeff1;
+  --wash: #f6f6f7;
+  --paper: #ffffff;
+  --hl: #e4ff4f;
+  --ok: #15803d;
+  --conflict: #c2410c;
+  --conflict-bar: #ea580c;
+  --review: #b91c1c;
+  --live: #16a34a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-foreground: var(--foreground);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-subtle-foreground: var(--subtle-foreground);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent-soft: var(--accent-soft);
-  --color-ring: var(--ring);
-  --color-supported: var(--supported);
-  --color-supported-soft: var(--supported-soft);
-  --color-conflicting: var(--conflicting);
-  --color-conflicting-soft: var(--conflicting-soft);
-  --color-missing: var(--missing);
-  --color-missing-soft: var(--missing-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+  --color-desk: var(--desk);
+  --color-wash: var(--wash);
+  --color-paper: var(--paper);
+  --color-hl: var(--hl);
+  --color-ok: var(--ok);
+  --color-conflict: var(--conflict);
+  --color-conflict-bar: var(--conflict-bar);
   --color-review: var(--review);
-  --color-review-soft: var(--review-soft);
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --color-live: var(--live);
+  --radius-ctl: 6px;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
 }
 
 @layer base {
   * {
-    border-color: var(--border);
+    border-color: var(--line);
   }
   html,
   body,
   #root {
-    height: 100%;
+    min-height: 100%;
   }
   body {
-    background: var(--background);
-    color: var(--foreground);
+    background: var(--paper);
+    color: var(--ink);
     font-family: var(--font-sans);
-    font-feature-settings: 'ss01', 'cv11';
+    font-size: 14px;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: var(--accent-soft);
+    background: var(--hl);
+    color: var(--ink);
   }
   :focus-visible {
-    outline: 2px solid var(--ring);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--faint);
+  }
 }
 
-/* The source highlight: the "memorable moment" that ties an answer to its passage. */
-@keyframes trace-pulse {
+@layer components {
+  /* Mono caption: anything the system says in small caps. */
+  .cap {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* Keyboard key */
+  .kbd {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 16px;
+    padding: 0 4px;
+    min-width: 16px;
+    text-align: center;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-ctl);
+    color: var(--ink-2);
+    background: #fff;
+  }
+  .kbd-dark {
+    background: #26272b;
+    border-color: #45474d;
+    color: #c4c5ca;
+  }
+  .hl {
+    background: var(--hl);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .fn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    vertical-align: super;
+    line-height: 0;
+    margin-left: 1px;
+  }
+  /* A sheet of paper on the desk. */
+  .paper {
+    background: var(--paper);
+    box-shadow:
+      0 1px 2px rgb(11 11 12 / 0.06),
+      0 12px 32px rgb(11 11 12 / 0.07);
+  }
+}
+
+/* The source highlight: highlighter marker, flashes ink when focused. */
+@keyframes trace-flash {
   0% {
-    box-shadow: 0 0 0 0 oklch(0.82 0.11 185 / 0.55);
-    background-color: oklch(0.82 0.11 185 / 0.5);
+    box-shadow: 0 0 0 3px var(--ink);
   }
   100% {
-    box-shadow: 0 0 0 6px oklch(0.82 0.11 185 / 0);
-    background-color: var(--highlight);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
-
 .trace-mark {
-  background-color: var(--highlight);
-  color: var(--foreground);
-  border-radius: 3px;
-  padding: 1px 2px;
+  background: var(--hl);
+  color: var(--ink);
+  cursor: pointer;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.trace-mark[data-tone='conflict'] {
-  background-color: var(--highlight-conflict);
-}
 .trace-mark[data-active='true'] {
-  animation: trace-pulse 900ms ease-out 1;
-  outline: 1px solid oklch(0.82 0.11 185 / 0.7);
+  animation: trace-flash 900ms ease-out 1;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
-.trace-mark[data-tone='conflict'][data-active='true'] {
-  outline-color: oklch(0.82 0.13 75 / 0.8);
+
+@keyframes trace-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.trace-connector-path {
+  stroke-dasharray: 1;
+  animation: trace-draw 600ms ease-out both;
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(2px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 .animate-fade-in {
-  animation: fade-in 180ms ease-out;
+  animation: fade-in 160ms ease-out;
+}
+
+@keyframes ellipsis {
+  0% {
+    content: '';
+  }
+  33% {
+    content: '.';
+  }
+  66% {
+    content: '..';
+  }
+  100% {
+    content: '...';
+  }
+}
+.working::after {
+  content: '';
+  animation: ellipsis 1.2s steps(1) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -143,19 +207,5 @@
 
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
-
-/* Connector from evidence card to highlighted passage (desktop). */
-@keyframes trace-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-.trace-connector-path {
-  stroke-dasharray: 1;
-  animation: trace-draw 600ms ease-out both;
+  scrollbar-color: var(--line-strong) transparent;
 }

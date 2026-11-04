@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from 'convex/react'
-import { Check, MessageSquareQuote, CircleCheck, CircleDashed, CircleX, Eraser, Loader2, Quote, RotateCcw, ShieldCheck, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
 import { checkType } from '@shared/verify'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input, NativeSelect, Textarea } from '@/components/ui/input'
-import { ReviewBadge, STATUS_META, StatusBadge } from '@/components/status-badge'
+import { Button, Kbd } from '@/components/ui/button'
+import { LineInput } from '@/components/ui/input'
+import { ReviewMark, STATUS_META } from '@/components/status-badge'
 import { formatValue, relativeTime } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -16,10 +14,10 @@ import { ConflictCompare } from './conflict-compare'
 import type { ActiveEvidence, DocumentRow, FieldResultRow } from './types'
 
 const TYPE_LABEL: Record<FormField['type'], string> = {
-  short_text: 'Short text',
+  short_text: 'Text',
   long_text: 'Long text',
   number: 'Number',
-  date: 'Date (YYYY-MM-DD)',
+  date: 'Date',
   single_select: 'Single select',
 }
 
@@ -27,15 +25,16 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 interface Props {
   field: FormField
+  index: number
+  sectionTitle: string
   result: FieldResultRow | undefined
   documents: DocumentRow[]
   active: ActiveEvidence | null
   onShowEvidence: (index: number) => void
   isPrecomputed: boolean
-  sectionTitle: string
 }
 
-export function FieldDetail({ field, result, documents, active, onShowEvidence, sectionTitle, isPrecomputed }: Props) {
+export function FieldDetail({ field, index, sectionTitle, result, documents, active, onShowEvidence, isPrecomputed }: Props) {
   const edit = useMutation(api.review.edit)
   const approve = useMutation(api.review.approve)
   const clear = useMutation(api.review.clear)
@@ -47,28 +46,33 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
   const dirty = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Sync from server when not actively typing.
   useEffect(() => {
     if (!dirty.current) setDraft(serverValue)
   }, [serverValue])
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  const eyebrow = `${String(index).padStart(2, '0')} · ${sectionTitle} · ${TYPE_LABEL[field.type]}${field.required ? ' · Required' : ''}`
 
   if (!result) {
     return (
-      <div className="h-full rounded-2xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold">{field.label}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This field was added after the selected run. Run the extraction again to fill it.
-        </p>
+      <div className="px-6 py-7 md:px-8">
+        <p className="cap">{eyebrow}</p>
+        <h1 className="mt-2.5 text-[28px] font-semibold tracking-[-0.035em]">{field.label}</h1>
+        <p className="mt-4 text-[14px] text-ink-2">This field was added after the selected run. Run extraction again to fill it.</p>
       </div>
     )
   }
 
   const r = result
   const docName = (id: string) => documents.find((d) => d._id === id)?.name ?? 'Removed document'
+  const meta = STATUS_META[r.raw.status]
+  const verifiedCount = r.raw.evidence.filter((e) => e.sourceMatchVerified).length
 
   async function persist(value: string) {
     setSave('saving')
@@ -91,12 +95,16 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
     timer.current = setTimeout(() => persist(value), 600)
   }
 
-  async function act(fn: () => Promise<unknown>, done: string) {
+  async function flush() {
     if (timer.current) {
       clearTimeout(timer.current)
       timer.current = null
       if (dirty.current) await persist(draft)
     }
+  }
+
+  async function act(fn: () => Promise<unknown>, done: string) {
+    await flush()
     try {
       await fn()
       dirty.current = false
@@ -107,65 +115,80 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
   }
 
   const typeCheck = draft.trim() ? checkType(field, draft) : null
-  const verifiedCount = r.raw.evidence.filter((e) => e.sourceMatchVerified).length
   const changed = r.current.state !== 'unreviewed' || (r.current.value ?? '') !== (r.raw.value ?? '')
 
-  const inputProps = {
-    id: `value-${field.id}`,
-    value: draft,
-    'aria-describedby': `value-help-${field.id}`,
-  }
+  const statusLine =
+    r.raw.status === 'supported'
+      ? `${verifiedCount} of ${r.raw.evidence.length} quote${r.raw.evidence.length === 1 ? '' : 's'} verified by code`
+      : r.raw.status === 'conflicting'
+        ? 'Sources give different values. You decide.'
+        : r.raw.status === 'missing'
+          ? 'Not stated in any source'
+          : (r.raw.issues[0] ?? 'Failed a deterministic check')
+
+  const helper =
+    save === 'saving'
+      ? 'Saving'
+      : save === 'saved'
+        ? '✓ Saved'
+        : save === 'error'
+          ? '! Not saved'
+          : typeCheck && !typeCheck.ok
+            ? null
+            : r.current.editedAt
+              ? `Updated ${relativeTime(r.current.editedAt)}`
+              : 'Autosaves · extracted value can be restored'
+
+  const showValue = r.raw.status !== 'conflicting' || r.current.state === 'resolved' || r.current.state === 'edited'
 
   return (
-    <article className="scrollbar-thin flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-border bg-surface animate-fade-in">
-      <header className="border-b border-border p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">{sectionTitle}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold">{field.label}</h2>
-          <StatusBadge status={r.raw.status} />
-          <ReviewBadge state={r.current.state} />
-          {r.raw.repair?.outcome === 'fixed' && (
-            <Badge tone="accent">
-              <Wrench aria-hidden /> Fixed on second pass
-            </Badge>
-          )}
-          {r.raw.repair && r.raw.repair.outcome !== 'fixed' && (
-            <Badge tone="review">
-              <Wrench aria-hidden /> {r.raw.repair.outcome === 'now_missing' ? 'Repair: now missing' : 'Still unverified'}
-            </Badge>
-          )}
+    <article className="animate-fade-in pb-24 lg:pb-10">
+      <header className="px-6 pt-7 md:px-8">
+        <p className="cap">{eyebrow}</p>
+        <h1 className="mt-2.5 text-[26px] font-semibold leading-[1.1] tracking-[-0.035em] md:text-[30px]">{field.label}</h1>
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className={cn('font-mono text-xs uppercase', meta.color)}>
+            {meta.glyph} {meta.label} · <span className="normal-case">{statusLine}</span>
+          </p>
+          <ReviewMark state={r.current.state} />
         </div>
-        <p className="mt-1 text-xs text-subtle-foreground">
-          {TYPE_LABEL[field.type]}
-          {field.required ? ' · required' : ''}
-          {field.description ? ` · ${field.description}` : ''}
-        </p>
+        {field.description && <p className="mt-2 text-[13px] text-muted">{field.description}</p>}
       </header>
 
-      <div className="space-y-4 p-4">
-        {/* Reviewer value */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor={`value-${field.id}`} className="text-xs font-medium text-muted-foreground">
-              Reviewed value
-            </label>
-            <span className="text-[11px] text-subtle-foreground" aria-live="polite">
-              {save === 'saving' && (
-                <span className="inline-flex items-center gap-1">
-                  <Loader2 className="size-3 animate-spin" aria-hidden /> Saving…
-                </span>
-              )}
-              {save === 'saved' && (
-                <span className="inline-flex items-center gap-1 text-supported">
-                  <Check className="size-3" aria-hidden /> Saved
-                </span>
-              )}
-              {save === 'error' && <span className="text-review">Not saved</span>}
-              {save === 'idle' && r.current.editedAt && `Updated ${relativeTime(r.current.editedAt)}`}
-            </span>
-          </div>
+      {r.raw.repair && (
+        <section className="mx-6 mt-6 border-t border-dashed border-line-strong pt-3 md:mx-8" aria-label="Repair pass">
+          <p className="font-mono text-[11px] uppercase text-ink">
+            ↻ {r.raw.repair.outcome === 'fixed' ? 'Repaired on second pass' : r.raw.repair.outcome === 'now_missing' ? 'Withdrawn on second pass' : 'Still unverified after second pass'}
+          </p>
+          {r.raw.repair.failedQuotes.map((q) => (
+            <p key={q} className="mt-1.5 font-serif text-[14.5px] leading-[1.45] text-faint line-through">
+              “{q}”
+            </p>
+          ))}
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{r.raw.repair.note}</p>
+        </section>
+      )}
+
+      {r.raw.status === 'conflicting' && (
+        <div className="mt-6 px-6 md:px-8">
+          <ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} />
+        </div>
+      )}
+
+      {/* Reviewed value */}
+      <section className="mt-6 flex flex-col gap-2 px-6 md:px-8" aria-label="Reviewed value">
+        <label htmlFor={`value-${field.id}`} className="cap">
+          Reviewed value
+        </label>
+        <div className="flex flex-wrap items-end gap-2.5">
           {field.type === 'single_select' ? (
-            <NativeSelect {...inputProps} onChange={(e) => onChange(e.target.value)}>
+            <select
+              id={`value-${field.id}`}
+              value={draft}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={flush}
+              className="h-11 min-w-0 flex-1 border-0 border-b border-ink bg-transparent text-[20px] font-medium outline-none focus-visible:border-b-2"
+            >
               <option value="">(blank)</option>
               {field.choices.map((c) => (
                 <option key={c} value={c}>
@@ -173,187 +196,177 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
                 </option>
               ))}
               {draft && !field.choices.includes(draft) && <option value={draft}>{draft}</option>}
-            </NativeSelect>
-          ) : field.type === 'long_text' ? (
-            <Textarea {...inputProps} onChange={(e) => onChange(e.target.value)} placeholder="Blank" />
+            </select>
           ) : (
-            <Input
-              {...inputProps}
+            <LineInput
+              id={`value-${field.id}`}
+              value={showValue ? draft : draft}
               onChange={(e) => onChange(e.target.value)}
+              onBlur={flush}
               inputMode={field.type === 'number' ? 'decimal' : undefined}
-              placeholder={r.raw.status === 'missing' ? 'Blank: not documented in any source' : r.raw.status === 'conflicting' ? 'Choose a side below, or type a value' : 'Blank'}
+              placeholder={r.raw.status === 'missing' ? 'Blank · type a value if you know it' : r.raw.status === 'conflicting' ? 'Pick a side, or type a value' : 'Blank'}
+              className={cn('flex-1 basis-56', (field.type === 'number' || field.type === 'date') && 'tabular-nums')}
             />
           )}
-          <p id={`value-help-${field.id}`} className="mt-1.5 min-h-4 text-xs text-subtle-foreground">
-            {typeCheck && !typeCheck.ok ? (
-              <span className="text-review">{typeCheck.note}</span>
-            ) : draft && (field.type === 'number' || field.type === 'date') ? (
-              `Reads as ${formatValue(typeCheck?.ok ? typeCheck.value : draft, field.type)}`
-            ) : r.raw.value !== null && (r.current.value ?? '') !== r.raw.value ? (
-              <>Extracted value: {formatValue(r.raw.value, field.type)}</>
-            ) : null}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <Button
-              size="sm"
+              variant="ink"
+              className="max-lg:hidden"
               onClick={() => act(() => approve({ resultId: r._id }), 'Approved')}
               disabled={!draft.trim() || r.current.state === 'approved'}
             >
-              <ShieldCheck /> Approve
+              Approve <Kbd dark>A</Kbd>
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => act(() => clear({ resultId: r._id }), 'Cleared')} disabled={r.current.state === 'cleared'}>
-              <Eraser /> Clear
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => act(() => restore({ resultId: r._id }), 'Restored to extracted value')} disabled={!changed}>
-              <RotateCcw /> Restore extracted
+            <Button onClick={() => act(() => clear({ resultId: r._id }), 'Cleared')} disabled={r.current.state === 'cleared'}>
+              Clear
             </Button>
           </div>
         </div>
-
-        {r.raw.repair && (
-          <div className="rounded-xl border border-accent/30 bg-accent-soft/40 p-3">
-            <h3 className="flex items-center gap-1.5 text-xs font-medium">
-              <Wrench className="size-3.5 text-accent" aria-hidden /> Repair pass
-            </h3>
-            <p className="mt-1 text-[13px] text-muted-foreground">{r.raw.repair.note}</p>
-            {r.raw.repair.failedQuotes.length > 0 && (
-              <div className="mt-2">
-                <p className="text-[11px] uppercase tracking-wide text-subtle-foreground">First-pass quote that failed verification</p>
-                {r.raw.repair.failedQuotes.map((q) => (
-                  <p key={q} className="mt-1 text-[13px] text-review line-through decoration-review/60">
-                    {q}
-                  </p>
-                ))}
-              </div>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.03em]">
+          <span className={cn(save === 'saved' ? 'text-ok' : save === 'error' ? 'text-review' : 'text-faint')} aria-live="polite">
+            {typeCheck && !typeCheck.ok ? (
+              <span className="normal-case text-review">! {typeCheck.note}</span>
+            ) : save === 'saving' ? (
+              <span className="working">{helper}</span>
+            ) : (
+              helper
             )}
-          </div>
-        )}
-
-        {r.raw.status === 'conflicting' && (
-          <ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} />
-        )}
-
-        {r.raw.status === 'missing' && (
-          <div className="rounded-xl border border-dashed border-border-strong p-3 text-[13px] text-muted-foreground">
-            <p className="flex items-center gap-1.5 font-medium text-foreground">
-              <CircleDashed className="size-4 text-missing" aria-hidden /> Not documented
-            </p>
-            <p className="mt-1">
-              No source states this. It stays blank on purpose: TraceForm never infers a fact from absence. If you know the answer
-              from elsewhere, type it above and it will be marked as edited by you.
-            </p>
-          </div>
-        )}
-
-        {/* Verification */}
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground">Verification</h3>
-          <dl className="mt-2 grid gap-2 sm:grid-cols-2">
-            <div className="rounded-xl bg-surface-2 p-3">
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-subtle-foreground">Source match</dt>
-              <dd className="mt-1 text-[13px]">
-                {r.raw.evidence.length === 0
-                  ? 'No citations'
-                  : `${verifiedCount} of ${r.raw.evidence.length} quote${r.raw.evidence.length === 1 ? '' : 's'} found verbatim in the source`}
-              </dd>
-              <dd className="mt-0.5 text-[11.5px] text-subtle-foreground">Checked by code, not by the model.</dd>
-            </div>
-            <div className="rounded-xl bg-surface-2 p-3">
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-subtle-foreground">Answer validation</dt>
-              <dd className="mt-1 text-[13px]">
-                {r.current.state === 'unreviewed' ? 'Not yet confirmed by a human' : `Human review: ${r.current.state}`}
-              </dd>
-              <dd className="mt-0.5 text-[11.5px] text-subtle-foreground">Only a reviewer can confirm what a quote means.</dd>
-            </div>
-          </dl>
-          {r.raw.issues.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {r.raw.issues.map((issue) => (
-                <li key={issue} className="flex items-start gap-1.5 text-xs text-review">
-                  <CircleX className="mt-px size-3.5 shrink-0" aria-hidden />
-                  {issue}
-                </li>
-              ))}
-            </ul>
+            {draft && typeCheck?.ok && (field.type === 'number' || field.type === 'date') && save !== 'saving' && (
+              <span className="ml-2 normal-case text-muted">reads as {formatValue(typeCheck.value, field.type)}</span>
+            )}
+          </span>
+          {changed && (
+            <button onClick={() => act(() => restore({ resultId: r._id }), 'Restored to extracted value')} className="normal-case tracking-normal text-[12.5px] text-ink underline underline-offset-4 hover:decoration-2" style={{ fontFamily: 'var(--font-sans)' }}>
+              Restore extracted{r.raw.value ? ` (${formatValue(r.raw.value, field.type)})` : ''}
+            </button>
           )}
-          <p className="mt-2 text-xs text-subtle-foreground">{STATUS_META[r.raw.status].description}</p>
         </div>
+      </section>
 
-        {r.raw.status !== 'conflicting' && r.raw.evidence.length > 0 && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground">Evidence</h3>
-            <ul className="mt-2 space-y-2">
-              {r.raw.evidence.map((e, i) => {
-                const isActive = active?.index === i
-                return (
-                  <li key={i}>
-                    <button
-                      data-trace-source={isActive && e.sourceMatchVerified ? 'true' : undefined}
-                      onClick={() => e.sourceMatchVerified && onShowEvidence(i)}
-                      disabled={!e.sourceMatchVerified}
-                      className={cn(
-                        'w-full rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                        e.sourceMatchVerified ? 'border-border hover:border-accent/50 hover:bg-surface-2' : 'cursor-default border-review/30 bg-review-soft',
-                        isActive && e.sourceMatchVerified && 'border-accent/60 bg-accent-soft',
-                      )}
-                    >
-                      <span className="flex items-center gap-1.5 text-[11.5px] text-subtle-foreground">
-                        {e.sourceMatchVerified ? (
-                          <CircleCheck className="size-3.5 text-supported" aria-hidden />
-                        ) : (
-                          <CircleX className="size-3.5 text-review" aria-hidden />
-                        )}
-                        <span className="truncate">{docName(e.documentId)}</span>
-                        {e.paragraphIndex !== null && <span>· ¶{e.paragraphIndex + 1}</span>}
-                        {e.pageNumber !== null && <span>· page {e.pageNumber}</span>}
-                        <span className="ml-auto">{e.sourceMatchVerified ? 'Show in source' : (e.verifyNote ?? 'unverified')}</span>
-                      </span>
-                      <span className="mt-1.5 flex gap-2 text-[13px] leading-relaxed">
-                        <Quote className="mt-1 size-3 shrink-0 text-subtle-foreground" aria-hidden />
-                        <span className={e.sourceMatchVerified ? '' : 'line-through decoration-review/60'}>{e.quote}</span>
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
+      {r.raw.status === 'missing' && (
+        <p className="mx-6 mt-6 border-l-0 font-serif text-[15px] leading-[1.55] text-ink-2 md:mx-8">
+          No source states this, so the field stays blank. Traceform never infers a fact from absence.
+        </p>
+      )}
 
-        {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && (
-          <div className="rounded-xl border border-border p-3">
-            <h3 className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
-              <MessageSquareQuote className="size-3.5 text-muted-foreground" aria-hidden /> Model second opinion
-              <span className="font-normal text-subtle-foreground">· advisory, not proof</span>
-              {r.raw.audit && (
-                <Badge tone={r.raw.audit.verdict === 'agrees' ? 'supported' : r.raw.audit.verdict === 'disagrees' ? 'review' : 'missing'} className="ml-auto">
-                  {r.raw.audit.verdict === 'agrees'
-                    ? r.raw.status === 'conflicting'
-                      ? 'Agrees: real conflict'
-                      : 'Agrees'
-                    : r.raw.audit.verdict === 'disagrees'
-                      ? 'Disagrees'
-                      : 'Unsure'}
-                </Badge>
+      {/* Evidence as footnotes */}
+      {r.raw.status !== 'conflicting' && r.raw.evidence.length > 0 && (
+        <section className="mt-7 px-6 md:px-8" aria-label="Evidence">
+          <p className="cap mb-1">Evidence</p>
+          <ol>
+            {r.raw.evidence.map((e, i) => {
+              const inView = active?.index === i
+              return (
+                <li key={i} className="border-t border-line first:border-ink">
+                  <button
+                    data-trace-source={inView && e.sourceMatchVerified ? 'true' : undefined}
+                    onClick={() => e.sourceMatchVerified && onShowEvidence(i)}
+                    disabled={!e.sourceMatchVerified}
+                    className={cn(
+                      'grid w-full grid-cols-[20px_minmax(0,1fr)] gap-2 py-3 text-left outline-none focus-visible:outline-2 focus-visible:outline-ink',
+                      e.sourceMatchVerified ? 'hover:bg-wash' : 'cursor-default',
+                    )}
+                  >
+                    <span className="pt-1 font-mono text-[11px] font-medium">{i + 1}</span>
+                    <span className="flex flex-col gap-1">
+                      <span className={cn('font-serif text-[15px] leading-[1.5]', !e.sourceMatchVerified && 'text-faint line-through')}>
+                        “{inView && e.sourceMatchVerified ? <span className="hl">{e.quote}</span> : e.quote}”
+                      </span>
+                      <span className={cn('font-mono text-[11px]', e.sourceMatchVerified ? 'text-muted' : 'text-review')}>
+                        {e.sourceMatchVerified ? '✓' : '!'} {docName(e.documentId)}
+                        {e.paragraphIndex !== null && ` · ¶${e.paragraphIndex + 1}`}
+                        {e.pageNumber !== null && ` · page ${e.pageNumber}`}
+                        {!e.sourceMatchVerified && ` · ${e.verifyNote ?? 'unverified'}`}
+                        {e.sourceMatchVerified && <span className="ml-2 text-ink">{inView ? '◂ in view' : 'show ▸'}</span>}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      )}
+
+      {/* Verification log */}
+      <section className="mt-7 px-6 md:px-8" aria-label="Verification log">
+        <p className="cap mb-1.5">Verification log</p>
+        <div className="border-b border-dashed border-line font-mono text-[12px] leading-[1.55] text-ink-2">
+          {r.raw.evidence.map((e, i) => (
+            <LogLine key={i} mark={e.sourceMatchVerified ? '✓' : '!'} tone={e.sourceMatchVerified ? 'ok' : 'review'}>
+              quote <b className="font-medium text-ink">{i + 1}</b>{' '}
+              {e.sourceMatchVerified ? (
+                <>
+                  found verbatim · {docName(e.documentId)}
+                  {e.paragraphIndex !== null && ` ¶${e.paragraphIndex + 1}`} · chars {e.startOffset}–{e.endOffset}
+                </>
+              ) : (
+                <>
+                  {e.verifyNote ?? 'not verified'} · {docName(e.documentId)}
+                </>
               )}
-            </h3>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              {r.raw.audit
-                ? r.raw.audit.note
-                : isPrecomputed
-                  ? 'Not available for the precomputed demo. Live runs ask a separate auditor call whether each verified quote actually answers its field.'
-                  : 'No second opinion was recorded for this answer.'}
-            </p>
-          </div>
-        )}
+            </LogLine>
+          ))}
+          {r.raw.evidence.length === 0 && (
+            <LogLine mark="—" tone="muted">
+              no citations {r.raw.status === 'missing' ? '· the model reported the fact as missing' : ''}
+            </LogLine>
+          )}
+          {r.raw.issues
+            .filter((i) => !i.startsWith('quote not found') && !i.startsWith('unknown source'))
+            .map((issue) => (
+              <LogLine key={issue} mark="!" tone="review">
+                {issue}
+              </LogLine>
+            ))}
+          {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && r.raw.issues.length === 0 && (
+            <LogLine mark="✓" tone="ok">
+              {r.raw.status === 'conflicting' ? `conflict rule · ${new Set(r.raw.evidence.map((e) => e.claimedValue)).size} distinct verified values` : `type check · ${TYPE_LABEL[field.type].toLowerCase()}`}
+            </LogLine>
+          )}
+          {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && (
+            <LogLine mark="~" tone="muted">
+              second opinion <span className="text-faint">(advisory, Meta)</span> ·{' '}
+              {r.raw.audit ? (
+                <>
+                  <span className={r.raw.audit.verdict === 'disagrees' ? 'text-review' : 'text-ink'}>
+                    {r.raw.audit.verdict === 'agrees' ? (r.raw.status === 'conflicting' ? 'agrees it is a real conflict' : 'agrees') : r.raw.audit.verdict}
+                  </span>
+                  {' · '}
+                  <span className="font-sans text-[12.5px] text-muted">{r.raw.audit.note}</span>
+                </>
+              ) : isPrecomputed ? (
+                'not run for the precomputed sample'
+              ) : (
+                'not recorded'
+              )}
+            </LogLine>
+          )}
+          <LogLine mark={r.current.state === 'unreviewed' ? '○' : '■'} tone={r.current.state === 'unreviewed' ? 'conflict' : 'ink'}>
+            human review · {r.current.state === 'unreviewed' ? <span className="text-conflict">waiting for you</span> : r.current.state}
+          </LogLine>
+        </div>
+        <p className="mt-3 text-[12.5px] leading-relaxed text-muted">
+          Lines marked ✓ are checked by code, not by the model. A match proves the quote exists, not that it answers the question. That part is yours.
+        </p>
+      </section>
 
-        {r.raw.reason && (
-          <div>
-            <h3 className="text-xs font-medium text-muted-foreground">Model’s reason</h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{r.raw.reason}</p>
-          </div>
-        )}
-      </div>
+      {r.raw.reason && (
+        <section className="mt-6 px-6 md:px-8">
+          <p className="cap mb-1">Model’s reason</p>
+          <p className="text-[13.5px] leading-relaxed text-ink-2">{r.raw.reason}</p>
+        </section>
+      )}
     </article>
+  )
+}
+
+function LogLine({ mark, tone, children }: { mark: string; tone: 'ok' | 'review' | 'muted' | 'conflict' | 'ink'; children: React.ReactNode }) {
+  const color = { ok: 'text-ok', review: 'text-review', muted: 'text-muted', conflict: 'text-conflict', ink: 'text-ink' }[tone]
+  return (
+    <div className="grid grid-cols-[18px_minmax(0,1fr)] gap-2.5 border-t border-dashed border-line py-[7px]">
+      <span className={color}>{mark}</span>
+      <span className="break-words">{children}</span>
+    </div>
   )
 }

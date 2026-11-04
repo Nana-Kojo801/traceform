@@ -1,41 +1,36 @@
-import { AlertTriangle, CircleCheck, CircleDashed, GitCompareArrows, PencilLine, RotateCcw, ShieldCheck, Eraser, Scale } from 'lucide-react'
 import type { FieldStatus, ReviewState } from '@shared/types'
-import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
-export const STATUS_META: Record<FieldStatus, { label: string; tone: 'supported' | 'conflicting' | 'missing' | 'review'; description: string }> = {
-  supported: { label: 'Supported', tone: 'supported', description: 'Answer backed by a quote that was found in the source.' },
-  conflicting: { label: 'Conflict', tone: 'conflicting', description: 'Sources disagree. Both sides are shown; nothing was picked for you.' },
-  missing: { label: 'Missing', tone: 'missing', description: 'Not documented in any source. Left blank on purpose.' },
-  needs_review: { label: 'Needs review', tone: 'review', description: 'Failed a deterministic check (citation, type, or evidence).' },
+export const STATUS_META: Record<FieldStatus, { glyph: string; label: string; short: string; color: string; description: string }> = {
+  supported: { glyph: '✓', label: 'Supported', short: 'OK', color: 'text-ok', description: 'Backed by a quote that code found in the source.' },
+  conflicting: { glyph: '≠', label: 'Conflict', short: 'CONFLICT', color: 'text-conflict', description: 'Sources give different values. Both are shown; nothing was picked for you.' },
+  missing: { glyph: '—', label: 'Blank', short: 'BLANK', color: 'text-muted', description: 'Not stated in any source. Left blank on purpose.' },
+  needs_review: { glyph: '!', label: 'Needs review', short: 'REVIEW', color: 'text-review', description: 'Failed a deterministic check: citation, type, or evidence.' },
 }
 
-export function StatusBadge({ status }: { status: FieldStatus }) {
-  const meta = STATUS_META[status]
-  const Icon =
-    status === 'supported' ? CircleCheck : status === 'conflicting' ? GitCompareArrows : status === 'missing' ? CircleDashed : AlertTriangle
+/** Status as a mono glyph and word, never colour alone. */
+export function StatusMark({ status, long, className }: { status: FieldStatus; long?: boolean; className?: string }) {
+  const m = STATUS_META[status]
   return (
-    <Badge tone={meta.tone} title={meta.description}>
-      <Icon aria-hidden />
-      {meta.label}
-    </Badge>
+    <span className={cn('font-mono text-[11px] font-medium uppercase tracking-[0.03em] whitespace-nowrap', m.color, className)} title={m.description}>
+      {m.glyph} {long ? m.label : m.short}
+    </span>
   )
 }
 
 export const REVIEW_META: Record<ReviewState, { label: string }> = {
-  unreviewed: { label: 'Unreviewed' },
+  unreviewed: { label: 'Open' },
   approved: { label: 'Approved' },
   edited: { label: 'Edited' },
   cleared: { label: 'Cleared' },
   resolved: { label: 'Resolved' },
 }
 
-export function ReviewBadge({ state }: { state: ReviewState }) {
+export function ReviewMark({ state, className }: { state: ReviewState; className?: string }) {
   if (state === 'unreviewed') return null
-  const Icon = state === 'approved' ? ShieldCheck : state === 'edited' ? PencilLine : state === 'cleared' ? Eraser : state === 'resolved' ? Scale : RotateCcw
   return (
-    <Badge tone="accent" title="Human review state">
-      <Icon aria-hidden />
-      {REVIEW_META[state].label}
-    </Badge>
+    <span className={cn('font-mono text-[10.5px] font-medium uppercase tracking-[0.04em] text-ink', className)}>
+      ■ {REVIEW_META[state].label}
+    </span>
   )
 }

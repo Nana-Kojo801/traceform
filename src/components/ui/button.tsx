@@ -4,25 +4,26 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 export const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[6px] font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-35 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'bg-accent text-accent-foreground hover:bg-accent-strong',
-        secondary: 'bg-surface-3 text-foreground hover:bg-border-strong/70',
-        outline: 'border border-border-strong bg-transparent text-foreground hover:bg-surface-2',
-        ghost: 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
-        danger: 'text-review hover:bg-review-soft',
+        ink: 'bg-ink text-white hover:bg-[#26272b]',
+        outline: 'border border-line-strong bg-white text-ink hover:bg-wash',
+        soft: 'bg-desk text-ink hover:bg-line',
+        ghost: 'text-ink-2 hover:bg-wash hover:text-ink',
+        link: 'h-auto px-0 text-ink underline decoration-1 underline-offset-4 hover:decoration-2',
+        danger: 'text-review hover:bg-red-50',
       },
       size: {
-        default: 'h-9 px-4',
-        sm: 'h-8 px-3 text-[13px]',
-        xs: 'h-7 px-2.5 text-xs [&_svg]:size-3.5',
-        icon: 'size-9',
-        'icon-sm': 'size-8',
+        default: 'h-[34px] px-3.5 text-[13px] [&_svg]:size-4',
+        lg: 'h-11 px-5 text-[15px] [&_svg]:size-[18px]',
+        sm: 'h-8 px-3 text-[12.5px] [&_svg]:size-3.5',
+        icon: 'size-[34px] [&_svg]:size-4',
+        'icon-lg': 'size-11 [&_svg]:size-[18px]',
       },
     },
-    defaultVariants: { variant: 'default', size: 'default' },
+    defaultVariants: { variant: 'outline', size: 'default' },
   },
 )
 
@@ -39,10 +40,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         ref={ref}
         type={asChild ? undefined : (type ?? 'button')}
-        className={cn(buttonVariants({ variant, size }), className)}
+        className={cn(buttonVariants({ variant, size }), variant === 'link' && 'px-0', className)}
         {...props}
       />
     )
   },
 )
 Button.displayName = 'Button'
+
+export function Kbd({ children, dark, className }: { children: React.ReactNode; dark?: boolean; className?: string }) {
+  return <kbd className={cn('kbd', dark && 'kbd-dark', className)}>{children}</kbd>
+}

@@ -10,17 +10,40 @@ export const list = query({
       projects.map(async (p) => {
         const docs = await getDocumentsForProject(ctx, p._id)
         const schema = await getSchemaForProject(ctx, p._id)
-        const lastRun = await ctx.db
+        const runs = await ctx.db
           .query('runs')
           .withIndex('by_project', (q) => q.eq('projectId', p._id))
           .order('desc')
-          .first()
+          .collect()
+        const lastRun = runs[0] ?? null
+        const completed = runs.find((r) => r.status === 'completed') ?? null
+        const results = completed
+          ? await ctx.db
+              .query('field_results')
+              .withIndex('by_run', (q) => q.eq('runId', completed._id))
+              .collect()
+          : []
+        const order = new Map((schema?.fields ?? []).map((f, i) => [f.id, i]))
+        const answers = results
+          .slice()
+          .sort((a, b) => (order.get(a.fieldId) ?? 99) - (order.get(b.fieldId) ?? 99))
+          .map((r) => r.raw.status)
         return {
           ...p,
           documentCount: docs.length,
+          documentKinds: docs.map((d) => d.kind),
+          transcribedCount: docs.filter((d) => d.transcribed).length,
           fieldCount: schema?.fields.length ?? 0,
+          answers,
+          reviewedCount: results.filter((r) => r.current.state !== 'unreviewed').length,
           lastRun: lastRun
-            ? { status: lastRun.status, startedAt: lastRun.startedAt, isPrecomputed: lastRun.isPrecomputed }
+            ? {
+                status: lastRun.status,
+                startedAt: lastRun.startedAt,
+                isPrecomputed: lastRun.isPrecomputed,
+                durationMs: lastRun.stats?.durationMs ?? null,
+                modelCalls: lastRun.stats?.modelCalls ?? null,
+              }
             : null,
         }
       }),

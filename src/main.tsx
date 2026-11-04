@@ -20,10 +20,16 @@ if (!url) {
         <BrowserRouter>
           <App />
           <Toaster
-            theme="dark"
+            theme="light"
             position="bottom-right"
             toastOptions={{
-              style: { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--foreground)', borderRadius: 14 },
+              style: {
+                background: '#0b0b0c',
+                border: '0',
+                color: '#ffffff',
+                borderRadius: 6,
+                fontFamily: 'Instrument Sans, sans-serif',
+              },
             }}
           />
         </BrowserRouter>

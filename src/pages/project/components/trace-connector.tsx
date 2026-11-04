@@ -51,7 +51,9 @@ export function TraceConnector({ containerRef, trigger }: { containerRef: RefObj
       const a = card.getBoundingClientRect()
       const b = mark.getClientRects()[0] ?? mark.getBoundingClientRect()
       if (b.left <= a.right) return setGeo(null)
-      const x1 = a.right - c.left
+      // Start at the edge of the answer pane so the line never crosses its content.
+      const pane = scrollParent(card)
+      const x1 = (pane ? pane.getBoundingClientRect().right : a.right) - c.left
       const y1 = a.top + a.height / 2 - c.top
       const x2 = b.left - c.left - 4
       const y2 = b.top + b.height / 2 - c.top
@@ -86,14 +88,14 @@ export function TraceConnector({ containerRef, trigger }: { containerRef: RefObj
         key={drawKey}
         d={geo.d}
         fill="none"
-        stroke="var(--accent)"
-        strokeOpacity="0.55"
-        strokeWidth="1.5"
+        stroke="var(--ink)"
+        strokeOpacity="0.7"
+        strokeWidth="1.25"
         pathLength={1}
         className="trace-connector-path"
       />
-      <circle cx={geo.x1} cy={geo.y1} r="3.5" fill="var(--accent)" />
-      <circle cx={geo.x2} cy={geo.y2} r="3.5" fill="var(--accent)" />
+      <circle cx={geo.x1} cy={geo.y1} r="3.5" fill="var(--ink)" />
+      <circle cx={geo.x2} cy={geo.y2} r="3.5" fill="var(--ink)" />
     </svg>
   )
 }
