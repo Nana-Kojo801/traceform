@@ -144,3 +144,38 @@ export function parseAuditOutput(text: string): AuditOutput | null {
     return null
   }
 }
+
+// ---------- vision transcription ----------
+
+export const transcriptionSchema = z.object({
+  pages: z.array(z.object({ pageNumber: z.number(), text: z.string() })),
+  note: z.string(),
+})
+export type Transcription = z.infer<typeof transcriptionSchema>
+
+export const transcriptionJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['pages', 'note'],
+  properties: {
+    pages: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['pageNumber', 'text'],
+        properties: { pageNumber: { type: 'integer' }, text: { type: 'string' } },
+      },
+    },
+    note: { type: 'string' },
+  },
+} as const
+
+export function parseTranscription(text: string): Transcription | null {
+  try {
+    const parsed = transcriptionSchema.safeParse(JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, '')))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}

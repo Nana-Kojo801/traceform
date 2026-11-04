@@ -21,16 +21,26 @@ export function segmentParagraphs(text: string): Segment[] {
   return segments
 }
 
-/** Join PDF pages with blank lines and produce one segment per page. */
+/**
+ * Join pages with blank lines. Each page is split into paragraph segments
+ * (on blank lines) that keep their page number.
+ */
 export function joinPages(pages: string[]): { text: string; segments: Segment[] } {
   let text = ''
   const segments: Segment[] = []
   pages.forEach((page, i) => {
     const body = page.trim()
+    if (!body) return
     if (text) text += '\n\n'
-    const start = text.length
+    const offset = text.length
     text += body
-    if (body) segments.push({ index: segments.length, start, end: text.length, pageNumber: i + 1 })
+    for (const p of segmentParagraphs(body)) {
+      segments.push({ index: segments.length, start: offset + p.start, end: offset + p.end, pageNumber: i + 1 })
+    }
   })
   return { text, segments }
+}
+
+export function pageCount(segments: Segment[]): number {
+  return segments.reduce((n, s) => Math.max(n, s.pageNumber ?? 0), 0)
 }

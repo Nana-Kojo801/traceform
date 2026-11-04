@@ -17,6 +17,12 @@ export interface ModelCallResult {
   outputTokens: number
 }
 
+/** A user message with text and image blocks (Responses API input array). */
+export interface ResponsesInputItem {
+  role: 'user'
+  content: ({ type: 'input_text'; text: string } | { type: 'input_image'; image_url: string })[]
+}
+
 export class ModelApiError extends Error {
   status: number | null
   retryable: boolean
@@ -43,7 +49,7 @@ interface ResponsesBody {
 export async function callStructured(
   config: ModelConfig,
   instructions: string,
-  input: string,
+  input: string | ResponsesInputItem[],
   schema: { name: string; schema: unknown } = { name: 'traceform_extraction', schema: modelOutputJsonSchema },
 ): Promise<ModelCallResult> {
   const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/responses`, {

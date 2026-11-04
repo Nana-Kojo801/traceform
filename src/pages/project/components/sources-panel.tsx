@@ -1,14 +1,15 @@
 import { useRef, useState, type DragEvent } from 'react'
-import { useMutation } from 'convex/react'
-import { AlertTriangle, CircleCheck, Download, Eye, FileText, Loader2, ScanLine, Trash2, Upload } from 'lucide-react'
+import { useAction, useMutation } from 'convex/react'
+import { AlertTriangle, CircleCheck, Download, Eye, FileText, Image as ImageIcon, Loader2, ScanEye, ScanLine, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { MAX_DOCUMENTS_PER_PROJECT, MAX_FILE_BYTES, MAX_TOTAL_CHARS } from '@shared/limits'
+import { MAX_DOCUMENTS_PER_PROJECT, MAX_FILE_BYTES, MAX_TOTAL_CHARS, MAX_TRANSCRIBE_PAGES } from '@shared/limits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { parseFile, validateFile } from '@/lib/parse-file'
+import { parseFile, renderForVision, validateFile } from '@/lib/parse-file'
 import { formatBytes } from '@/lib/format'
+import { pageCount } from '@shared/segments'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { SourceViewer } from './source-viewer'
@@ -18,15 +19,24 @@ const SAMPLE_FILES = [
   { href: '/samples/application-narrative.txt', name: 'application-narrative.txt' },
   { href: '/samples/follow-up-email.docx', name: 'follow-up-email.docx' },
   { href: '/samples/board-meeting-minutes.txt', name: 'board-meeting-minutes.txt' },
+  { href: '/samples/site-visit-note-photo.jpg', name: 'site-visit-note-photo.jpg' },
+  { href: '/samples/site-visit-note-scan.pdf', name: 'site-visit-note-scan.pdf' },
 ]
+
+function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
 
 interface Pending {
   key: string
   name: string
+  stage: string
 }
 
 export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects'>; documents: DocumentRow[] }) {
   const add = useMutation(api.documents.add)
+  const generateUploadUrl = useMutation(api.transcribe.generateUploadUrl)
+  const transcribe = useAction(api.transcribe.transcribe)
   const remove = useMutation(api.documents.remove)
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -50,9 +60,34 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
         continue
       }
       const key = `${file.name}-${file.size}-${Math.random()}`
-      setPending((p) => [...p, { key, name: file.name }])
+      const stage = (text: string) => setPending((p) => p.map((x) => (x.key === key ? { ...x, stage: text } : x)))
+      setPending((p) => [...p, { key, name: file.name, stage: 'Parsing' }])
       try {
         const parsed = await parseFile(file)
+        if (parsed.parseStatus === 'needs_ocr' && (parsed.kind === 'pdf' || parsed.kind === 'image')) {
+          try {
+            stage('Rendering pages')
+            const blobs = await renderForVision(file, parsed.kind)
+            stage('Uploading page images')
+            const storageIds = []
+            for (const blob of blobs) {
+              const url = await generateUploadUrl({})
+              const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob })
+              if (!res.ok) throw new Error('Upload failed.')
+              storageIds.push(((await res.json()) as { storageId: Id<'_storage'> }).storageId)
+            }
+            stage(`Transcribing ${blobs.length} page${blobs.length === 1 ? '' : 's'} with Muse Spark vision`)
+            await transcribe({ projectId, name: file.name, kind: parsed.kind, sizeBytes: file.size, storageIds })
+          } catch (err) {
+            // Keep an honest record of the file and why it has no text.
+            const reason = errorMessage(err)
+            await add({ projectId, ...parsed, parseError: `${parsed.parseError} ${reason}` })
+            toast.warning(`${file.name}: ${reason}`)
+            continue
+          }
+          toast.success(`${file.name} transcribed by Muse Spark vision`, { description: 'Review the transcription before relying on it.' })
+          continue
+        }
         await add({ projectId, ...parsed })
         if (parsed.parseStatus === 'parsed') toast.success(`${file.name} parsed`)
         else toast.warning(`${file.name}: ${parsed.parseError}`)
@@ -88,9 +123,9 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
           )}
         >
           <Upload className="size-6 text-accent" aria-hidden />
-          <p className="mt-2 text-sm font-medium">Drop TXT, DOCX, or PDF files</p>
+          <p className="mt-2 text-sm font-medium">Drop TXT, DOCX, PDF, or photos of pages</p>
           <p className="mt-1 text-xs text-subtle-foreground">
-            Up to {MAX_DOCUMENTS_PER_PROJECT} files, {MAX_FILE_BYTES / 1024} KB each. Text is extracted in your browser.
+            Up to {MAX_DOCUMENTS_PER_PROJECT} files, {MAX_FILE_BYTES / 1024} KB each for text files. Text is extracted in your browser.
           </p>
           <Button className="mt-4" variant="secondary" size="sm" onClick={() => inputRef.current?.click()} disabled={slots <= 0}>
             Choose files
@@ -99,7 +134,7 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
             ref={inputRef}
             type="file"
             multiple
-            accept=".txt,.docx,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".txt,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
             className="sr-only"
             aria-label="Choose files to upload"
             onChange={(e) => {
@@ -107,8 +142,9 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
               e.target.value = ''
             }}
           />
-          <p className="mt-3 text-[11.5px] text-subtle-foreground">
-            Scanned PDFs without a text layer are not supported (no OCR).
+          <p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-subtle-foreground">
+            Photos and scanned PDFs (first {MAX_TRANSCRIBE_PAGES} pages) are transcribed by Muse Spark vision and labeled
+            “model transcription”. Citations are verified against that transcription, not the image.
           </p>
         </div>
 
@@ -127,7 +163,11 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
           <ul className="divide-y divide-border">
             {documents.map((d) => (
               <li key={d._id} className={cn('flex items-start gap-3 px-4 py-3', previewId === d._id && 'bg-surface-2')}>
-                {d.parseStatus === 'needs_ocr' ? (
+                {d.transcribed ? (
+                  <ScanEye className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+                ) : d.kind === 'image' ? (
+                  <ImageIcon className="mt-0.5 size-4 shrink-0 text-review" aria-hidden />
+                ) : d.parseStatus === 'needs_ocr' ? (
                   <ScanLine className="mt-0.5 size-4 shrink-0 text-conflicting" aria-hidden />
                 ) : d.parseStatus === 'failed' ? (
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-review" aria-hidden />
@@ -140,19 +180,25 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
                     <Badge tone="outline" className="uppercase">
                       {d.kind}
                     </Badge>
-                    {d.parseStatus === 'parsed' && (
+                    {d.parseStatus === 'parsed' && !d.transcribed && (
                       <Badge tone="supported">
                         <CircleCheck aria-hidden /> Parsed
                       </Badge>
                     )}
-                    {d.parseStatus === 'needs_ocr' && <Badge tone="conflicting">Needs OCR, not supported</Badge>}
+                    {d.transcribed && (
+                      <Badge tone="accent" title="Text produced by Muse Spark vision. Quotes are verified against this transcription.">
+                        <ScanEye aria-hidden /> Model transcription
+                      </Badge>
+                    )}
+                    {d.parseStatus === 'needs_ocr' && <Badge tone="conflicting">Needs transcription</Badge>}
                     {d.parseStatus === 'failed' && <Badge tone="review">Failed</Badge>}
                   </div>
                   <p className="mt-0.5 text-xs text-subtle-foreground">
                     {formatBytes(d.sizeBytes)}
                     {d.parseStatus === 'parsed' &&
-                      ` · ${d.text.length.toLocaleString()} chars · ${d.segments.length} ${d.kind === 'pdf' ? 'pages' : 'paragraphs'}`}
+                      ` · ${d.text.length.toLocaleString()} chars · ${plural(pageCount(d.segments) || d.segments.length, pageCount(d.segments) ? 'page' : 'paragraph')}`}
                   </p>
+                  {d.transcriptionNote && <p className="mt-1 text-xs text-muted-foreground">Transcription note: {d.transcriptionNote}</p>}
                   {d.parseError && <p className="mt-1 text-xs text-review">{d.parseError}</p>}
                 </div>
                 <div className="flex shrink-0 gap-0.5">
@@ -183,7 +229,7 @@ export function SourcesPanel({ projectId, documents }: { projectId: Id<'projects
             {pending.map((p) => (
               <li key={p.key} className="flex items-center gap-3 px-4 py-3 text-[13px] text-muted-foreground">
                 <Loader2 className="size-4 animate-spin text-accent" aria-hidden />
-                Parsing {p.name}…
+                {p.stage} · {p.name}…
               </li>
             ))}
           </ul>

@@ -16,6 +16,7 @@ import type * as helpers from "../helpers.js";
 import type * as projects from "../projects.js";
 import type * as review from "../review.js";
 import type * as runs from "../runs.js";
+import type * as transcribe from "../transcribe.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   review: typeof review;
   runs: typeof runs;
+  transcribe: typeof transcribe;
 }>;
 
 /**

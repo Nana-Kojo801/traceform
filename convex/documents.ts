@@ -16,7 +16,7 @@ export const add = mutation({
   args: {
     projectId: v.id('projects'),
     name: v.string(),
-    kind: v.union(v.literal('txt'), v.literal('docx'), v.literal('pdf')),
+    kind: v.union(v.literal('txt'), v.literal('docx'), v.literal('pdf'), v.literal('image')),
     text: v.string(),
     segments: v.array(segmentV),
     parseStatus: v.union(v.literal('parsed'), v.literal('failed'), v.literal('needs_ocr')),
@@ -30,7 +30,7 @@ export const add = mutation({
     if (existing.length >= MAX_DOCUMENTS_PER_PROJECT) {
       throw new ConvexError(`Limit reached: at most ${MAX_DOCUMENTS_PER_PROJECT} documents per project.`)
     }
-    if (args.sizeBytes > MAX_FILE_BYTES) {
+    if (args.kind !== 'image' && args.sizeBytes > MAX_FILE_BYTES) {
       throw new ConvexError(`File is larger than ${Math.round(MAX_FILE_BYTES / 1024)} KB.`)
     }
     // Per-document text cap: a single document can never exceed the per-run budget.
@@ -63,6 +63,18 @@ export const remove = mutation({
   handler: async (ctx, { documentId }) => {
     const doc = await ctx.db.get(documentId)
     if (!doc) return
+    for (const id of doc.pageImageIds ?? []) await ctx.storage.delete(id)
     await ctx.db.delete(documentId)
+  },
+})
+
+/** Signed URLs for the original page images of a transcribed document. */
+export const pageImages = query({
+  args: { documentId: v.id('documents') },
+  handler: async (ctx, { documentId }) => {
+    const doc = await ctx.db.get(documentId)
+    if (!doc?.pageImageIds) return []
+    const urls = await Promise.all(doc.pageImageIds.map((id) => ctx.storage.getUrl(id)))
+    return urls.filter((u): u is string => u !== null)
   },
 })

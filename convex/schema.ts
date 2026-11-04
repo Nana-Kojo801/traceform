@@ -125,13 +125,17 @@ export default defineSchema({
   documents: defineTable({
     projectId: v.id('projects'),
     name: v.string(),
-    kind: v.union(v.literal('txt'), v.literal('docx'), v.literal('pdf')),
+    kind: v.union(v.literal('txt'), v.literal('docx'), v.literal('pdf'), v.literal('image')),
     text: v.string(),
     segments: v.array(segmentV),
     parseStatus: v.union(v.literal('parsed'), v.literal('failed'), v.literal('needs_ocr')),
     parseError: v.optional(v.string()),
     sizeBytes: v.number(),
     createdAt: v.number(),
+    /** True when the text is a Muse Spark vision transcription of page images. */
+    transcribed: v.optional(v.boolean()),
+    transcriptionNote: v.optional(v.string()),
+    pageImageIds: v.optional(v.array(v.id('_storage'))),
   }).index('by_project', ['projectId']),
 
   schemas: defineTable({

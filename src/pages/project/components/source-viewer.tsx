@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { FileText } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from 'convex/react'
+import { FileText, ScanEye } from 'lucide-react'
+import { api } from '@convex/_generated/api'
+import type { Id } from '@convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
 import type { ActiveEvidence, DocumentRow, FieldResultRow } from './types'
 
@@ -57,6 +60,11 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
   const scrollRef = useRef<HTMLDivElement>(null)
   const parsed = documents.filter((d) => d.parseStatus === 'parsed')
   const doc = parsed.find((d) => d._id === viewDocId) ?? parsed[0]
+  const [showOriginal, setShowOriginal] = useState(false)
+  const images = useQuery(
+    api.documents.pageImages,
+    doc?.transcribed && showOriginal ? { documentId: doc._id as Id<'documents'> } : 'skip',
+  )
 
   const marks: Mark[] = useMemo(() => {
     if (plain || !result || !doc) return []
@@ -122,6 +130,22 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
           )
         })}
       </div>
+      {doc?.transcribed && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-accent-soft/40 px-4 py-1.5 text-[11.5px] text-muted-foreground">
+          <ScanEye className="size-3.5 text-accent" aria-hidden />
+          <span>
+            <span className="font-medium text-foreground">Model transcription</span> by Muse Spark vision. Quotes are verified against
+            this transcription, not the original image.
+          </span>
+          <button
+            onClick={() => setShowOriginal((v) => !v)}
+            className="ml-auto rounded-full px-2 py-0.5 font-medium text-accent outline-none hover:bg-accent-soft focus-visible:ring-2 focus-visible:ring-ring"
+            aria-pressed={showOriginal}
+          >
+            {showOriginal ? 'Hide original' : 'Compare with original'}
+          </button>
+        </div>
+      )}
       {activeEvidence && activeEvidence.documentId === doc?._id && !plain && (
         <p className="border-b border-border px-4 py-1.5 text-[11.5px] text-subtle-foreground">
           Highlighted: verified quote for this field
@@ -130,11 +154,21 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
         </p>
       )}
       <div ref={scrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6" tabIndex={0} aria-label={`Text of ${doc?.name}`}>
+        {doc?.transcribed && showOriginal && (
+          <div className="mx-auto mb-4 max-w-[68ch] space-y-2">
+            {images === undefined && <div className="h-40 animate-pulse rounded-xl bg-surface-2" />}
+            {images?.map((src, i) => (
+              <img key={src} src={src} alt={`Original page ${i + 1} of ${doc.name}`} className="w-full rounded-xl border border-border" loading="lazy" />
+            ))}
+          </div>
+        )}
         {doc && (
           <div className="mx-auto max-w-[68ch] space-y-3 text-[13.5px] leading-[1.7] text-muted-foreground">
             {doc.segments.map((s) => (
               <p key={s.index} className="whitespace-pre-wrap break-words">
-                {s.pageNumber && <span className="mr-2 select-none font-mono text-[10px] text-subtle-foreground">p.{s.pageNumber}</span>}
+                {s.pageNumber && doc.segments[s.index - 1]?.pageNumber !== s.pageNumber && (
+                  <span className="mr-2 select-none font-mono text-[10px] text-subtle-foreground">p.{s.pageNumber}</span>
+                )}
                 {renderSegment(doc.text, s.start, s.end, marks, active, tone, onFocusEvidence)}
               </p>
             ))}

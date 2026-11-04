@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { checkType, findQuote, normalizeDate, normalizeText, verifyField } from './verify'
 import { parseModelOutput } from './model-output'
 import { runPipeline } from './pipeline'
-import { segmentParagraphs } from './segments'
+import { joinPages, segmentParagraphs } from './segments'
 import { SAMPLE_DOCUMENTS } from './sample/sample-documents'
 import { SAMPLE_SCHEMA } from './sample/sample-schema'
 import { PRECOMPUTED_FIRST_PASS, PRECOMPUTED_REPAIRS } from './sample/sample-precomputed'
@@ -258,5 +258,16 @@ describe('auditor pass (advisory)', () => {
     expect(stats.audit.ran).toBe(false)
     expect(stats.audit.error).toMatch(/not valid/)
     expect(results.project_title.status).toBe('supported')
+  })
+})
+
+describe('segments', () => {
+  it('splits pages into paragraph segments that keep page numbers', () => {
+    const { text, segments } = joinPages(['Title\n\nFirst para.', '', 'Page three text.'])
+    expect(segments.map((s) => [text.slice(s.start, s.end), s.pageNumber])).toEqual([
+      ['Title', 1],
+      ['First para.', 1],
+      ['Page three text.', 3],
+    ])
   })
 })

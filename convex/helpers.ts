@@ -59,7 +59,10 @@ export async function deleteProjectCascade(ctx: MutationCtx, projectId: Id<'proj
     for (const l of logs) await ctx.db.delete(l._id)
     await ctx.db.delete(run._id)
   }
-  for (const d of await getDocumentsForProject(ctx, projectId)) await ctx.db.delete(d._id)
+  for (const d of await getDocumentsForProject(ctx, projectId)) {
+    for (const id of d.pageImageIds ?? []) await ctx.storage.delete(id)
+    await ctx.db.delete(d._id)
+  }
   const schema = await getSchemaForProject(ctx, projectId)
   if (schema) await ctx.db.delete(schema._id)
   await ctx.db.delete(projectId)

@@ -9,7 +9,7 @@ export type FieldStatus = (typeof FIELD_STATUSES)[number]
 export const REVIEW_STATES = ['unreviewed', 'approved', 'edited', 'cleared', 'resolved'] as const
 export type ReviewState = (typeof REVIEW_STATES)[number]
 
-export type DocumentKind = 'txt' | 'docx' | 'pdf'
+export type DocumentKind = 'txt' | 'docx' | 'pdf' | 'image'
 
 export interface FormSection {
   id: string
