@@ -1,0 +1,61 @@
+1
+00:00:00,200 --> 00:00:04,937
+AI can fill in forms. But can you trust the answers?
+
+2
+00:00:04,977 --> 00:00:12,148
+A grant form and 3 messy documents. Let's fill it in.
+
+3
+00:00:12,188 --> 00:00:19,139
+Meta's Muse Spark answers each field with a word-for-word quote.
+[Wait sped up 8×. Real wait: 27 s]
+
+4
+00:00:19,179 --> 00:00:25,157
+Then code, not AI, checks each quote is really in the document.
+
+5
+00:00:25,197 --> 00:00:29,446
+Click an answer: the exact sentence lights up in the source.
+
+6
+00:00:29,486 --> 00:00:34,045
+A second Meta AI call adds an advisory second opinion.
+
+7
+00:00:34,085 --> 00:00:38,109
+The documents disagree: $48,000 or $54,000?
+
+8
+00:00:38,149 --> 00:00:41,797
+TraceForm shows both sources. It never picks for you.
+
+9
+00:00:41,837 --> 00:00:47,754
+You choose. You approve.
+
+10
+00:00:47,794 --> 00:00:52,808
+Not in any document? It stays blank. No guessing.
+
+11
+00:00:52,848 --> 00:00:57,153
+This is sample data (not live AI) with a planted fake quote.
+
+12
+00:00:57,193 --> 00:01:00,453
+Code caught it. Meta's model re-cited the real sentence.
+
+13
+00:01:00,493 --> 00:01:03,833
+In live tests, 3 of 3 fake quotes were caught.
+
+14
+00:01:03,873 --> 00:01:09,398
+Photos too: Muse Spark vision reads them, side by side.
+
+15
+00:01:09,438 --> 00:01:16,445
+Export to CSV or JSON. Your $54,000 choice is marked approved.
+
