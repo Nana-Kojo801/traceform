@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
 import { Button } from '@/components/ui/button'
+import { Segmented } from '@/components/ui/segmented'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { FieldList, matchesFilter, type StatusFilter } from './field-list'
@@ -34,7 +35,6 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
   const hasOpen = workspace.results.some((r) => r.current.state === 'unreviewed')
   const [filter, setFilter] = useState<StatusFilter>(hasOpen ? 'open' : 'all')
   const [search, setSearch] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const [pane, setPane] = useState<MobilePane>('fields')
   const [active, setActive] = useState<ActiveEvidence | null>(null)
@@ -119,12 +119,12 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
   const approveSelected = useCallback(async () => {
     if (!selectedResult) return
     if (selectedResult.current.value === null || selectedResult.current.value === '') {
-      toast.error(selectedResult.raw.status === 'conflicting' ? 'Pick a side first (1 or 2).' : 'There is no value to approve.')
+      toast.error(selectedResult.raw.status === 'conflicting' ? 'Choose a value first.' : 'There is no value to approve.')
       return
     }
     try {
       await approve({ resultId: selectedResult._id })
-      toast.success(`Approved: ${selectedField?.label}`)
+      toast.success(`Approved ${selectedField?.label}`)
     } catch (err) {
       toast.error(errorMessage(err))
     }
@@ -179,8 +179,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         }
         case '/':
           e.preventDefault()
-          setSearchOpen(true)
-          requestAnimationFrame(() => searchRef.current?.focus())
+          searchRef.current?.focus()
           break
       }
     }
@@ -191,55 +190,50 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
   if (!workspace.selected) {
     const running = workspace.latest?.status === 'running'
     return (
-      <div className="mx-auto max-w-xl px-6 py-20">
-        <p className="cap">{running ? 'In progress' : 'Review'}</p>
-        <h2 className="mt-2 border-b border-ink pb-3 text-[28px] font-semibold tracking-[-0.035em]">{running ? <span className="working">Reading the sources</span> : 'Nothing to review yet'}</h2>
-        <p className="mt-4 font-serif text-[17px] leading-relaxed text-ink-2">
-          {running
-            ? 'Meta’s model is extracting answers. Each one is checked against the source text by code before it appears here.'
-            : 'Add source documents and a form, then run extraction. Every answer will come back with its footnote.'}
-        </p>
-        {!running && (
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            <Button variant="ink" onClick={() => onGoTo('sources')}>
-              Add sources
-            </Button>
-            <Button onClick={() => onGoTo('form')}>Build the form</Button>
-          </div>
-        )}
+      <div className="mx-auto max-w-lg px-4 py-12 lg:py-20">
+        <div className="card flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <span className="grid size-12 place-items-center rounded-[12px] bg-ink">
+            <span className={running ? 'size-2.5 animate-pulse rounded-full bg-hl' : 'size-2.5 rounded-full bg-hl'} />
+          </span>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em]">{running ? <span className="working">Reading your documents</span> : 'Nothing to review yet'}</h2>
+          <p className="max-w-sm text-[15px] text-muted">
+            {running ? 'Answers appear here once every quote has been checked against its source.' : 'Add your documents and a form, then press Run.'}
+          </p>
+          {!running && (
+            <div className="mt-2 flex gap-2.5">
+              <Button variant="ink" onClick={() => onGoTo('sources')}>
+                Add documents
+              </Button>
+              <Button onClick={() => onGoTo('form')}>Set up the form</Button>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
 
-  const fieldIndex = selectedField ? fields.indexOf(selectedField) + 1 : 0
-
   return (
     <div className="flex h-full flex-col">
-      <div role="tablist" aria-label="Review panes" className="flex gap-6 border-b border-line px-4 lg:hidden">
-        {(
-          [
-            ['fields', 'Fields'],
-            ['answer', 'Answer'],
-            ['source', 'Source'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={pane === id}
-            onClick={() => showPane(id)}
-            className={cn('h-11 border-b-2 text-sm font-medium', pane === id ? 'border-ink text-ink' : 'border-transparent text-muted')}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="px-4 pb-3 lg:hidden">
+        <Segmented
+          role="tablist"
+          label="Review panes"
+          value={pane}
+          onChange={showPane}
+          className="w-full"
+          options={[
+            { value: 'fields', label: 'Fields' },
+            { value: 'answer', label: 'Answer' },
+            { value: 'source', label: 'Source' },
+          ]}
+        />
       </div>
 
       <div
         ref={gridRef}
-        className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_minmax(0,1.05fr)]"
+        className="relative grid min-h-0 flex-1 grid-cols-1 gap-5 px-4 pb-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:px-7 lg:pb-7 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1.05fr)]"
       >
-        <section aria-label="Form fields" className={cn('min-h-0 min-w-0 border-line lg:block lg:border-r', pane === 'fields' ? 'block' : 'hidden')}>
+        <section aria-label="Form fields" className={cn('min-h-0 min-w-0 lg:block', pane === 'fields' ? 'block' : 'hidden')}>
           <FieldList
             schema={schema}
             resultsByField={resultsByField}
@@ -250,25 +244,21 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
             onFilter={setFilter}
             search={search}
             onSearch={setSearch}
-            searchOpen={searchOpen}
-            onSearchOpen={setSearchOpen}
             searchRef={searchRef}
           />
         </section>
 
         <TraceConnector containerRef={gridRef} trigger={`${selectedId}:${active?.nonce ?? 0}:${workspace.selected._id}`} />
 
-        <div className="min-h-0 min-w-0 lg:flex lg:flex-col xl:contents">
+        <div className="min-h-0 min-w-0 lg:flex lg:flex-col lg:gap-5 xl:contents">
           <section
             aria-label="Selected answer"
-            className={cn('scrollbar-thin min-h-0 min-w-0 lg:block lg:flex-1 lg:overflow-y-auto lg:border-b lg:border-line xl:border-b-0 xl:border-r', pane === 'answer' ? 'block' : 'hidden')}
+            className={cn('scrollbar-thin min-h-0 min-w-0 lg:block lg:flex-1 lg:overflow-y-auto lg:pr-1', pane === 'answer' ? 'block pb-24 lg:pb-0' : 'hidden')}
           >
             {selectedField ? (
               <FieldDetail
                 key={`${workspace.selected._id}:${selectedField.id}`}
                 field={selectedField}
-                index={fieldIndex}
-                sectionTitle={schema?.sections.find((s) => s.id === selectedField.sectionId)?.title ?? ''}
                 result={selectedResult}
                 documents={documents}
                 active={active}
@@ -283,13 +273,12 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
             )}
           </section>
 
-          <section aria-label="Source documents" className={cn('min-h-0 min-w-0 lg:block lg:h-[46%] lg:shrink-0 xl:h-auto', pane === 'source' ? 'block' : 'hidden')}>
+          <section aria-label="Source documents" className={cn('min-h-0 min-w-0 lg:block lg:h-[46%] lg:shrink-0 xl:h-auto', pane === 'source' ? 'block pb-24 lg:pb-0' : 'hidden')}>
             <SourceViewer
               documents={documents}
               viewDocId={viewDocId}
               onViewDoc={setViewDocId}
               result={selectedResult}
-              fieldLabel={selectedField?.label}
               active={active && active.fieldId === selectedId ? active : null}
               onFocusEvidence={(i) => selectedId && focusEvidence(selectedId, i)}
             />
@@ -297,17 +286,17 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         </div>
       </div>
 
-      {/* Mobile: one-handed review bar */}
+      {/* Phones: one-handed review bar */}
       {pane !== 'fields' && selectedResult && (
-        <div className="sticky bottom-0 z-20 flex gap-2 border-t border-line bg-white px-4 pb-6 pt-3 lg:hidden">
-          <Button variant="soft" size="icon-lg" aria-label="Previous field" onClick={() => move(-1)}>
-            <ChevronLeft strokeWidth={2.75} />
+        <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-2.5 bg-ground/90 px-4 pb-7 pt-3 backdrop-blur lg:hidden">
+          <Button size="icon-lg" className="bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)]" aria-label="Previous field" onClick={() => move(-1)}>
+            <ChevronLeft strokeWidth={2.8} />
           </Button>
-          <Button variant="ink" size="lg" className="flex-1" onClick={approveSelected} disabled={selectedResult.current.state === 'approved'}>
-            {selectedResult.current.state === 'approved' ? '✓ Approved' : 'Approve'}
+          <Button variant="ink" size="xl" className="flex-1" onClick={approveSelected} disabled={selectedResult.current.state === 'approved'}>
+            {selectedResult.current.state === 'approved' ? 'Approved' : 'Approve'}
           </Button>
-          <Button variant="soft" size="icon-lg" aria-label="Next field" onClick={() => move(1)}>
-            <ChevronRight strokeWidth={2.75} />
+          <Button size="icon-lg" className="bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)]" aria-label="Next field" onClick={() => move(1)}>
+            <ChevronRight strokeWidth={2.8} />
           </Button>
         </div>
       )}

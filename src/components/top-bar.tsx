@@ -1,70 +1,41 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
-import { ChevronLeft } from 'lucide-react'
+import { Link, useLocation } from 'react-router'
+import { useQuery } from 'convex/react'
+import { api } from '@convex/_generated/api'
+import { cn } from '@/lib/utils'
 import { Wordmark } from './wordmark'
 import { ConnectionStatus } from './connection-status'
 
-interface Props {
-  /** Breadcrumb after the wordmark (desktop). */
-  crumbs?: ReactNode
-  /** Title shown next to the back button on small screens. */
-  mobileTitle?: ReactNode
-  mobileSubtitle?: ReactNode
-  backTo?: string
-  tabs?: ReactNode
-  actions?: ReactNode
-}
-
-export function TopBar({ crumbs, mobileTitle, mobileSubtitle, backTo, tabs, actions }: Props) {
+/** Top bar for the home and simple pages. */
+export function HomeBar({ actions }: { actions?: ReactNode }) {
+  const demoId = useQuery(api.demo.find)
+  const { pathname } = useLocation()
+  const pill = (active: boolean) =>
+    cn(
+      'flex h-9 items-center rounded-full px-4 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-ink',
+      active ? 'bg-card font-semibold shadow-[inset_0_0_0_1px_var(--line)]' : 'text-muted hover:text-ink',
+    )
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-white">
-      <div className="flex min-h-14 items-center gap-x-5 gap-y-0 px-4 md:px-5">
-        {backTo && (
-          <Link
-            to={backTo}
-            aria-label="Back"
-            className="grid size-11 shrink-0 place-items-center rounded-[6px] bg-ink text-white outline-none hover:bg-[#26272b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
-          >
-            <ChevronLeft className="size-5" strokeWidth={2.75} />
+    <header className="sticky top-0 z-30 border-b border-line bg-ground/90 backdrop-blur">
+      <div className="flex h-16 items-center gap-6 px-4 md:px-8">
+        <Wordmark />
+        <nav aria-label="Main" className="hidden gap-1 md:flex">
+          <Link to="/" className={pill(pathname === '/')}>
+            Home
           </Link>
-        )}
-        <div className={backTo ? 'hidden md:flex' : 'flex'}>
-          <Wordmark />
-        </div>
-        {crumbs && <div className="hidden min-w-0 items-center gap-3 text-sm md:flex">{crumbs}</div>}
-        {mobileTitle && (
-          <div className="flex min-w-0 flex-1 flex-col py-2 md:hidden">
-            <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{mobileTitle}</span>
-            {mobileSubtitle && <span className="cap truncate">{mobileSubtitle}</span>}
-          </div>
-        )}
-        {tabs && <div className="ml-4 hidden self-stretch lg:flex">{tabs}</div>}
-        <div className="ml-auto flex shrink-0 items-center gap-2.5">
+          {demoId && (
+            <Link to={`/projects/${demoId}?tab=review`} className={pill(false)}>
+              Sample project
+            </Link>
+          )}
+        </nav>
+        <div className="ml-auto flex items-center gap-3">
           <div className="hidden md:block">
             <ConnectionStatus />
           </div>
-          {actions && <span className="hidden h-5 w-px bg-line md:block" aria-hidden />}
           {actions}
         </div>
       </div>
-      {tabs && <div className="flex overflow-x-auto px-4 lg:hidden">{tabs}</div>}
     </header>
-  )
-}
-
-export function Crumb({ to, children }: { to?: string; children: ReactNode }) {
-  return (
-    <>
-      <span className="text-[#c4c5ca]" aria-hidden>
-        /
-      </span>
-      {to ? (
-        <Link to={to} className="text-muted hover:text-ink">
-          {children}
-        </Link>
-      ) : (
-        <span className="truncate font-medium text-ink">{children}</span>
-      )}
-    </>
   )
 }

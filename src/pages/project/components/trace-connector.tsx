@@ -55,7 +55,9 @@ export function TraceConnector({ containerRef, trigger }: { containerRef: RefObj
       const pane = scrollParent(card)
       const x1 = (pane ? pane.getBoundingClientRect().right : a.right) - c.left
       const y1 = a.top + a.height / 2 - c.top
-      const x2 = b.left - c.left - 4
+      // End at the paper’s edge, level with the quote, so the line never crosses text.
+      const paper = mark.closest('article')
+      const x2 = (paper ? paper.getBoundingClientRect().left : b.left) - c.left
       const y2 = b.top + b.height / 2 - c.top
       const dx = Math.max(40, (x2 - x1) / 2)
       setGeo({ d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, x1, y1, x2, y2 })

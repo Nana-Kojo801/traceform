@@ -47,9 +47,9 @@ Sample files for upload testing are in [`public/samples`](public/samples). They 
 
 ## Reviewing quickly
 
-The review screen is built for keyboard use: `↑`/`↓` (or `j`/`k`) move between fields, `A` approves, `E` edits the value, `1`/`2` pick a side of a conflict, `[`/`]` step through citations, `/` searches, and `R` starts a run. On phones, the review screen splits into Fields, Answer and Source tabs, with a sticky Approve bar.
+The interface is inspired by iOS but has its own identity: soft grouped cards on a warm grey background, black for actions, a yellow-green highlighter for quoted text, and numbered citation chips that tie each answer to its sentence in the source. Each screen has one large title, one status pill, and the content.
 
-The interface uses a "ledger" design: ink on paper, thin lines instead of cards, numbered footnote citations, and a single highlighter colour for quoted passages. Anything the system reports is set in monospace, and anything a document says is set in serif.
+Keyboard shortcuts on the review screen: `↑`/`↓` (or `j`/`k`) move between fields, `A` approves, `E` edits, `1`/`2` choose a value when sources disagree, `[`/`]` step through quotes, `/` searches, and `R` runs extraction. On phones, review splits into Fields, Answer and Source, with an Approve bar at the bottom.
 
 ## Architecture
 

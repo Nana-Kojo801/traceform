@@ -1,32 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from 'convex/react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
 import { checkType } from '@shared/verify'
-import { Button, Kbd } from '@/components/ui/button'
-import { LineInput } from '@/components/ui/input'
-import { ReviewMark, STATUS_META } from '@/components/status-badge'
-import { formatValue, relativeTime } from '@/lib/format'
+import { Button } from '@/components/ui/button'
+import { RepairIcon, StatusIcon, StatusPill } from '@/components/status-badge'
+import { formatValue } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { ConflictCompare } from './conflict-compare'
+import { shortName } from './source-viewer'
 import type { ActiveEvidence, DocumentRow, FieldResultRow } from './types'
-
-const TYPE_LABEL: Record<FormField['type'], string> = {
-  short_text: 'Text',
-  long_text: 'Long text',
-  number: 'Number',
-  date: 'Date',
-  single_select: 'Single select',
-}
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 interface Props {
   field: FormField
-  index: number
-  sectionTitle: string
   result: FieldResultRow | undefined
   documents: DocumentRow[]
   active: ActiveEvidence | null
@@ -34,7 +24,9 @@ interface Props {
   isPrecomputed: boolean
 }
 
-export function FieldDetail({ field, index, sectionTitle, result, documents, active, onShowEvidence, isPrecomputed }: Props) {
+const REVIEW_LABEL = { approved: 'Approved', edited: 'Edited by you', cleared: 'Cleared', resolved: 'Chosen by you' } as const
+
+export function FieldDetail({ field, result, documents, active, onShowEvidence }: Props) {
   const edit = useMutation(api.review.edit)
   const approve = useMutation(api.review.approve)
   const clear = useMutation(api.review.clear)
@@ -57,22 +49,21 @@ export function FieldDetail({ field, index, sectionTitle, result, documents, act
     [],
   )
 
-  const eyebrow = `${String(index).padStart(2, '0')} · ${sectionTitle} · ${TYPE_LABEL[field.type]}${field.required ? ' · Required' : ''}`
-
   if (!result) {
     return (
-      <div className="px-6 py-7 md:px-8">
-        <p className="cap">{eyebrow}</p>
-        <h1 className="mt-2.5 text-[28px] font-semibold tracking-[-0.035em]">{field.label}</h1>
-        <p className="mt-4 text-[14px] text-ink-2">This field was added after the selected run. Run extraction again to fill it.</p>
+      <div className="flex flex-col gap-3">
+        <h2 className="text-[30px] font-bold tracking-[-0.025em]">{field.label}</h2>
+        <p className="text-muted">This field was added after this run. Run again to fill it.</p>
       </div>
     )
   }
 
   const r = result
-  const docName = (id: string) => documents.find((d) => d._id === id)?.name ?? 'Removed document'
-  const meta = STATUS_META[r.raw.status]
-  const verifiedCount = r.raw.evidence.filter((e) => e.sourceMatchVerified).length
+  const docName = (id: string) => {
+    const n = documents.find((d) => d._id === id)?.name
+    return n ? shortName(n) : 'Removed document'
+  }
+  const verified = r.raw.evidence.filter((e) => e.sourceMatchVerified)
 
   async function persist(value: string) {
     setSave('saving')
@@ -116,80 +107,46 @@ export function FieldDetail({ field, index, sectionTitle, result, documents, act
 
   const typeCheck = draft.trim() ? checkType(field, draft) : null
   const changed = r.current.state !== 'unreviewed' || (r.current.value ?? '') !== (r.raw.value ?? '')
+  const shown = draft.trim() ? formatValue(typeCheck?.ok ? typeCheck.value : draft, field.type) : ''
+  const isLong = field.type === 'long_text'
 
-  const statusLine =
+  const statusLabel =
     r.raw.status === 'supported'
-      ? `${verifiedCount} of ${r.raw.evidence.length} quote${r.raw.evidence.length === 1 ? '' : 's'} verified by code`
-      : r.raw.status === 'conflicting'
-        ? 'Sources give different values. You decide.'
-        : r.raw.status === 'missing'
-          ? 'Not stated in any source'
-          : (r.raw.issues[0] ?? 'Failed a deterministic check')
-
-  const helper =
-    save === 'saving'
-      ? 'Saving'
-      : save === 'saved'
-        ? '✓ Saved'
-        : save === 'error'
-          ? '! Not saved'
-          : typeCheck && !typeCheck.ok
-            ? null
-            : r.current.editedAt
-              ? `Updated ${relativeTime(r.current.editedAt)}`
-              : 'Autosaves · extracted value can be restored'
-
-  const showValue = r.raw.status !== 'conflicting' || r.current.state === 'resolved' || r.current.state === 'edited'
+      ? verified.length > 1
+        ? `Verified in ${new Set(verified.map((e) => e.documentId)).size > 1 ? `${new Set(verified.map((e) => e.documentId)).size} sources` : 'the source'}`
+        : 'Verified in the source'
+      : undefined
 
   return (
-    <article className="animate-fade-in pb-24 lg:pb-10">
-      <header className="px-6 pt-7 md:px-8">
-        <p className="cap">{eyebrow}</p>
-        <h1 className="mt-2.5 text-[26px] font-semibold leading-[1.1] tracking-[-0.035em] md:text-[30px]">{field.label}</h1>
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <p className={cn('font-mono text-xs uppercase', meta.color)}>
-            {meta.glyph} {meta.label} · <span className="normal-case">{statusLine}</span>
-          </p>
-          <ReviewMark state={r.current.state} />
+    <article className="flex flex-col gap-6 animate-fade-in">
+      <header className="flex flex-col gap-2.5">
+        <h2 className="text-[30px] font-bold leading-[1.1] tracking-[-0.025em] md:text-[34px]">{field.label}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusPill status={r.raw.status} label={r.raw.status === 'conflicting' ? 'Sources disagree, choose one' : statusLabel} />
+          {r.current.state !== 'unreviewed' && (
+            <span className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[13px] font-semibold text-white">{REVIEW_LABEL[r.current.state]}</span>
+          )}
         </div>
-        {field.description && <p className="mt-2 text-[13px] text-muted">{field.description}</p>}
+        {field.description && <p className="text-[14px] text-muted">{field.description}</p>}
       </header>
 
-      {r.raw.repair && (
-        <section className="mx-6 mt-6 border-t border-dashed border-line-strong pt-3 md:mx-8" aria-label="Repair pass">
-          <p className="font-mono text-[11px] uppercase text-ink">
-            ↻ {r.raw.repair.outcome === 'fixed' ? 'Repaired on second pass' : r.raw.repair.outcome === 'now_missing' ? 'Withdrawn on second pass' : 'Still unverified after second pass'}
-          </p>
-          {r.raw.repair.failedQuotes.map((q) => (
-            <p key={q} className="mt-1.5 font-serif text-[14.5px] leading-[1.45] text-faint line-through">
-              “{q}”
-            </p>
-          ))}
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{r.raw.repair.note}</p>
-        </section>
-      )}
+      {r.raw.status === 'conflicting' && <ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} />}
 
-      {r.raw.status === 'conflicting' && (
-        <div className="mt-6 px-6 md:px-8">
-          <ConflictCompare field={field} result={r} docName={docName} active={active} onShowEvidence={onShowEvidence} />
-        </div>
-      )}
-
-      {/* Reviewed value */}
-      <section className="mt-6 flex flex-col gap-2 px-6 md:px-8" aria-label="Reviewed value">
-        <label htmlFor={`value-${field.id}`} className="cap">
-          Reviewed value
+      {/* Answer */}
+      <section aria-label="Answer">
+        <label htmlFor={`value-${field.id}`} className="block px-4 pb-1.5 text-[13px] text-muted">
+          {r.raw.status === 'conflicting' ? 'Or type a value' : 'Answer'}
         </label>
-        <div className="flex flex-wrap items-end gap-2.5">
+        <div className="card px-4 py-3 focus-within:shadow-[inset_0_0_0_2px_var(--ink)]">
           {field.type === 'single_select' ? (
             <select
               id={`value-${field.id}`}
               value={draft}
               onChange={(e) => onChange(e.target.value)}
               onBlur={flush}
-              className="h-11 min-w-0 flex-1 border-0 border-b border-ink bg-transparent text-[20px] font-medium outline-none focus-visible:border-b-2"
+              className="h-10 w-full bg-transparent text-[22px] font-bold tracking-[-0.02em] outline-none"
             >
-              <option value="">(blank)</option>
+              <option value="">Blank</option>
               {field.choices.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -197,176 +154,164 @@ export function FieldDetail({ field, index, sectionTitle, result, documents, act
               ))}
               {draft && !field.choices.includes(draft) && <option value={draft}>{draft}</option>}
             </select>
-          ) : (
-            <LineInput
+          ) : isLong ? (
+            <textarea
               id={`value-${field.id}`}
-              value={showValue ? draft : draft}
+              value={draft}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={flush}
+              rows={3}
+              placeholder="Blank"
+              className="w-full resize-y bg-transparent text-[16px] leading-relaxed outline-none"
+            />
+          ) : (
+            <input
+              id={`value-${field.id}`}
+              value={draft}
               onChange={(e) => onChange(e.target.value)}
               onBlur={flush}
               inputMode={field.type === 'number' ? 'decimal' : undefined}
-              placeholder={r.raw.status === 'missing' ? 'Blank · type a value if you know it' : r.raw.status === 'conflicting' ? 'Pick a side, or type a value' : 'Blank'}
-              className={cn('flex-1 basis-56', (field.type === 'number' || field.type === 'date') && 'tabular-nums')}
+              placeholder={r.raw.status === 'missing' ? 'Blank, type it if you know it' : 'Blank'}
+              className="h-10 w-full bg-transparent text-[22px] font-bold tracking-[-0.02em] tabular-nums outline-none placeholder:font-medium"
             />
           )}
-          <div className="flex gap-2">
-            <Button
-              variant="ink"
-              className="max-lg:hidden"
-              onClick={() => act(() => approve({ resultId: r._id }), 'Approved')}
-              disabled={!draft.trim() || r.current.state === 'approved'}
-            >
-              Approve <Kbd dark>A</Kbd>
-            </Button>
-            <Button onClick={() => act(() => clear({ resultId: r._id }), 'Cleared')} disabled={r.current.state === 'cleared'}>
-              Clear
-            </Button>
+          <div className="flex min-h-5 flex-wrap items-center justify-between gap-2 text-[12.5px]" aria-live="polite">
+            <span className={cn(typeCheck && !typeCheck.ok ? 'text-bad-text' : save === 'saved' ? 'text-ok-text' : 'text-muted')}>
+              {typeCheck && !typeCheck.ok
+                ? typeCheck.note
+                : save === 'saving'
+                  ? <span className="working">Saving</span>
+                  : save === 'saved'
+                    ? 'Saved'
+                    : save === 'error'
+                      ? 'Not saved'
+                      : (field.type === 'number' || field.type === 'date') && shown && shown !== draft
+                        ? shown
+                        : 'Saves as you type'}
+            </span>
+            {changed && (
+              <button onClick={() => act(() => restore({ resultId: r._id }), 'Restored')} className="font-medium text-ink underline-offset-4 hover:underline">
+                Restore original
+              </button>
+            )}
           </div>
-        </div>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.03em]">
-          <span className={cn(save === 'saved' ? 'text-ok' : save === 'error' ? 'text-review' : 'text-faint')} aria-live="polite">
-            {typeCheck && !typeCheck.ok ? (
-              <span className="normal-case text-review">! {typeCheck.note}</span>
-            ) : save === 'saving' ? (
-              <span className="working">{helper}</span>
-            ) : (
-              helper
-            )}
-            {draft && typeCheck?.ok && (field.type === 'number' || field.type === 'date') && save !== 'saving' && (
-              <span className="ml-2 normal-case text-muted">reads as {formatValue(typeCheck.value, field.type)}</span>
-            )}
-          </span>
-          {changed && (
-            <button onClick={() => act(() => restore({ resultId: r._id }), 'Restored to extracted value')} className="normal-case tracking-normal text-[12.5px] text-ink underline underline-offset-4 hover:decoration-2" style={{ fontFamily: 'var(--font-sans)' }}>
-              Restore extracted{r.raw.value ? ` (${formatValue(r.raw.value, field.type)})` : ''}
-            </button>
-          )}
         </div>
       </section>
 
+      <div className="flex flex-col gap-2 max-lg:hidden">
+        <Button
+          variant="ink"
+          size="xl"
+          title="Approve (A)"
+          onClick={() => act(() => approve({ resultId: r._id }), 'Approved')}
+          disabled={!draft.trim() || r.current.state === 'approved'}
+        >
+          {r.current.state === 'approved' ? 'Approved' : shown ? `Approve ${shown.length > 28 ? '' : shown}`.trim() : 'Approve'}
+        </Button>
+        {r.current.state !== 'cleared' && (
+          <Button variant="ghost" size="sm" className="self-center text-muted" onClick={() => act(() => clear({ resultId: r._id }), 'Cleared')}>
+            Clear this answer
+          </Button>
+        )}
+      </div>
+
       {r.raw.status === 'missing' && (
-        <p className="mx-6 mt-6 border-l-0 font-serif text-[15px] leading-[1.55] text-ink-2 md:mx-8">
-          No source states this, so the field stays blank. Traceform never infers a fact from absence.
-        </p>
+        <div className="card flex items-center gap-3 px-4 py-3.5">
+          <StatusIcon status="missing" />
+          <p className="text-[15px] text-ink-2">No document mentions this, so it stays blank.</p>
+        </div>
       )}
 
-      {/* Evidence as footnotes */}
+      {/* Source quotes */}
       {r.raw.status !== 'conflicting' && r.raw.evidence.length > 0 && (
-        <section className="mt-7 px-6 md:px-8" aria-label="Evidence">
-          <p className="cap mb-1">Evidence</p>
-          <ol>
+        <section aria-label="Source">
+          <p className="px-4 pb-1.5 text-[13px] text-muted">{r.raw.evidence.length > 1 ? 'Sources' : 'Source'}</p>
+          <div className="card overflow-hidden">
             {r.raw.evidence.map((e, i) => {
               const inView = active?.index === i
               return (
-                <li key={i} className="border-t border-line first:border-ink">
-                  <button
-                    data-trace-source={inView && e.sourceMatchVerified ? 'true' : undefined}
-                    onClick={() => e.sourceMatchVerified && onShowEvidence(i)}
-                    disabled={!e.sourceMatchVerified}
-                    className={cn(
-                      'grid w-full grid-cols-[20px_minmax(0,1fr)] gap-2 py-3 text-left outline-none focus-visible:outline-2 focus-visible:outline-ink',
-                      e.sourceMatchVerified ? 'hover:bg-wash' : 'cursor-default',
-                    )}
-                  >
-                    <span className="pt-1 font-mono text-[11px] font-medium">{i + 1}</span>
-                    <span className="flex flex-col gap-1">
-                      <span className={cn('font-serif text-[15px] leading-[1.5]', !e.sourceMatchVerified && 'text-faint line-through')}>
-                        “{inView && e.sourceMatchVerified ? <span className="hl">{e.quote}</span> : e.quote}”
-                      </span>
-                      <span className={cn('font-mono text-[11px]', e.sourceMatchVerified ? 'text-muted' : 'text-review')}>
-                        {e.sourceMatchVerified ? '✓' : '!'} {docName(e.documentId)}
-                        {e.paragraphIndex !== null && ` · ¶${e.paragraphIndex + 1}`}
-                        {e.pageNumber !== null && ` · page ${e.pageNumber}`}
-                        {!e.sourceMatchVerified && ` · ${e.verifyNote ?? 'unverified'}`}
-                        {e.sourceMatchVerified && <span className="ml-2 text-ink">{inView ? '◂ in view' : 'show ▸'}</span>}
-                      </span>
-                    </span>
-                  </button>
-                </li>
+                <button
+                  key={i}
+                  data-trace-source={inView && e.sourceMatchVerified ? 'true' : undefined}
+                  onClick={() => e.sourceMatchVerified && onShowEvidence(i)}
+                  disabled={!e.sourceMatchVerified}
+                  className={cn(
+                    'relative flex w-full flex-col gap-1.5 px-4 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
+                    e.sourceMatchVerified && 'hover:bg-[#fafaf8]',
+                    i > 0 && 'before:absolute before:left-4 before:right-0 before:top-0 before:h-px before:bg-line-soft',
+                  )}
+                >
+                  <span className="flex items-center gap-2 text-[13px] text-muted">
+                    <span className="cite">{i + 1}</span>
+                    {docName(e.documentId)}
+                    {!e.sourceMatchVerified && <span className="font-medium text-bad-text">· not found in the source</span>}
+                  </span>
+                  <span className={cn('font-serif text-[16px] leading-[1.55]', e.sourceMatchVerified ? 'text-ink' : 'text-faint line-through')}>
+                    {inView && e.sourceMatchVerified ? <span className="hl">{e.quote}</span> : e.quote}
+                  </span>
+                </button>
               )
             })}
-          </ol>
+          </div>
         </section>
       )}
 
-      {/* Verification log */}
-      <section className="mt-7 px-6 md:px-8" aria-label="Verification log">
-        <p className="cap mb-1.5">Verification log</p>
-        <div className="border-b border-dashed border-line font-mono text-[12px] leading-[1.55] text-ink-2">
-          {r.raw.evidence.map((e, i) => (
-            <LogLine key={i} mark={e.sourceMatchVerified ? '✓' : '!'} tone={e.sourceMatchVerified ? 'ok' : 'review'}>
-              quote <b className="font-medium text-ink">{i + 1}</b>{' '}
-              {e.sourceMatchVerified ? (
-                <>
-                  found verbatim · {docName(e.documentId)}
-                  {e.paragraphIndex !== null && ` ¶${e.paragraphIndex + 1}`} · chars {e.startOffset}–{e.endOffset}
-                </>
-              ) : (
-                <>
-                  {e.verifyNote ?? 'not verified'} · {docName(e.documentId)}
-                </>
-              )}
-            </LogLine>
-          ))}
-          {r.raw.evidence.length === 0 && (
-            <LogLine mark="—" tone="muted">
-              no citations {r.raw.status === 'missing' ? '· the model reported the fact as missing' : ''}
-            </LogLine>
-          )}
-          {r.raw.issues
-            .filter((i) => !i.startsWith('quote not found') && !i.startsWith('unknown source'))
-            .map((issue) => (
-              <LogLine key={issue} mark="!" tone="review">
-                {issue}
-              </LogLine>
-            ))}
-          {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && r.raw.issues.length === 0 && (
-            <LogLine mark="✓" tone="ok">
-              {r.raw.status === 'conflicting' ? `conflict rule · ${new Set(r.raw.evidence.map((e) => e.claimedValue)).size} distinct verified values` : `type check · ${TYPE_LABEL[field.type].toLowerCase()}`}
-            </LogLine>
-          )}
-          {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && (
-            <LogLine mark="~" tone="muted">
-              second opinion <span className="text-faint">(advisory, Meta)</span> ·{' '}
-              {r.raw.audit ? (
-                <>
-                  <span className={r.raw.audit.verdict === 'disagrees' ? 'text-review' : 'text-ink'}>
-                    {r.raw.audit.verdict === 'agrees' ? (r.raw.status === 'conflicting' ? 'agrees it is a real conflict' : 'agrees') : r.raw.audit.verdict}
-                  </span>
-                  {' · '}
-                  <span className="font-sans text-[12.5px] text-muted">{r.raw.audit.note}</span>
-                </>
-              ) : isPrecomputed ? (
-                'not run for the precomputed sample'
-              ) : (
-                'not recorded'
-              )}
-            </LogLine>
-          )}
-          <LogLine mark={r.current.state === 'unreviewed' ? '○' : '■'} tone={r.current.state === 'unreviewed' ? 'conflict' : 'ink'}>
-            human review · {r.current.state === 'unreviewed' ? <span className="text-conflict">waiting for you</span> : r.current.state}
-          </LogLine>
-        </div>
-        <p className="mt-3 text-[12.5px] leading-relaxed text-muted">
-          Lines marked ✓ are checked by code, not by the model. A match proves the quote exists, not that it answers the question. That part is yours.
-        </p>
-      </section>
-
-      {r.raw.reason && (
-        <section className="mt-6 px-6 md:px-8">
-          <p className="cap mb-1">Model’s reason</p>
-          <p className="text-[13.5px] leading-relaxed text-ink-2">{r.raw.reason}</p>
-        </section>
-      )}
+      <Checks r={r} />
     </article>
   )
 }
 
-function LogLine({ mark, tone, children }: { mark: string; tone: 'ok' | 'review' | 'muted' | 'conflict' | 'ink'; children: React.ReactNode }) {
-  const color = { ok: 'text-ok', review: 'text-review', muted: 'text-muted', conflict: 'text-conflict', ink: 'text-ink' }[tone]
+function Checks({ r }: { r: FieldResultRow }) {
+  const rows: { icon: ReactNode; text: ReactNode; sub?: string }[] = []
+  const total = r.raw.evidence.length
+  const ok = r.raw.evidence.filter((e) => e.sourceMatchVerified).length
+  if (total > 0) {
+    rows.push({
+      icon: <StatusIcon status={ok === total ? 'supported' : 'needs_review'} />,
+      text: ok === total ? (total > 1 ? `All ${total} quotes found in the sources` : 'Quote found in the source') : `${total - ok} quote${total - ok > 1 ? 's' : ''} not found in the source`,
+    })
+  }
+  if (r.raw.repair) {
+    rows.push({
+      icon: <RepairIcon />,
+      text: r.raw.repair.outcome === 'fixed' ? 'Fixed on a second try' : r.raw.repair.outcome === 'now_missing' ? 'Withdrawn on a second try' : 'Still unverified after a second try',
+      sub: r.raw.repair.failedQuotes.length ? `The first quote wasn’t in the source: “${r.raw.repair.failedQuotes[0]}”` : undefined,
+    })
+  }
+  for (const issue of r.raw.issues.filter((i) => !i.startsWith('quote not found') && !i.startsWith('unknown source') && i !== 'no verified evidence')) {
+    rows.push({ icon: <StatusIcon status="needs_review" />, text: issue.charAt(0).toUpperCase() + issue.slice(1) })
+  }
+  if (r.raw.audit) {
+    const a = r.raw.audit
+    rows.push({
+      icon: <StatusIcon status={a.verdict === 'agrees' ? 'supported' : a.verdict === 'disagrees' ? 'conflicting' : 'missing'} />,
+      text:
+        a.verdict === 'agrees'
+          ? r.raw.status === 'conflicting'
+            ? 'Second opinion agrees it’s a real conflict'
+            : 'Second opinion agrees'
+          : a.verdict === 'disagrees'
+            ? 'Second opinion disagrees'
+            : 'Second opinion is unsure',
+      sub: a.note,
+    })
+  }
+  if (rows.length === 0) return null
+
   return (
-    <div className="grid grid-cols-[18px_minmax(0,1fr)] gap-2.5 border-t border-dashed border-line py-[7px]">
-      <span className={color}>{mark}</span>
-      <span className="break-words">{children}</span>
-    </div>
+    <section aria-label="Checks">
+      <p className="px-4 pb-1.5 text-[13px] text-muted">Checks</p>
+      <div className="card overflow-hidden">
+        {rows.map((row, i) => (
+          <div key={i} className={cn('relative flex items-start gap-3 px-4 py-3', i > 0 && 'before:absolute before:left-[48px] before:right-0 before:top-0 before:h-px before:bg-line-soft')}>
+            <span className="mt-px">{row.icon}</span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[15px]">{row.text}</span>
+              {row.sub && <span className="line-clamp-2 text-[13px] text-muted">{row.sub}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { errorMessage } from '@/lib/errors'
 import { MAX_DOCUMENTS_PER_PROJECT, MAX_FILE_BYTES, MAX_TOTAL_CHARS } from '@shared/limits'
 
-export function ConnectionStatus({ showUsage }: { showUsage?: boolean }) {
+export function ConnectionStatus({ compact }: { compact?: boolean }) {
   const status = useQuery(api.runs.status)
   const test = useAction(api.extraction.testConnection)
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -18,33 +18,30 @@ export function ConnectionStatus({ showUsage }: { showUsage?: boolean }) {
     <Dialog>
       <DialogTrigger asChild>
         <button
-          className="flex h-8 items-center gap-2 rounded-[6px] px-1.5 font-mono text-xs text-ink-2 outline-none hover:bg-wash focus-visible:outline-2 focus-visible:outline-ink"
-          aria-label="Meta Model API status"
+          className="flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line)] outline-none hover:bg-[#fafaf8] focus-visible:outline-2 focus-visible:outline-ink"
+          aria-label="Meta AI connection status"
         >
-          <span className={cn('size-[7px] rounded-full', status === undefined ? 'bg-faint' : configured ? 'bg-live' : 'bg-review')} aria-hidden />
-          {status === undefined ? 'checking' : configured ? status.model : 'API key missing'}
-          {showUsage && status && <span className="text-muted">· {status.dailyRunsUsed}/{status.dailyRunCap} calls today</span>}
+          <span className={cn('size-[7px] rounded-full', status === undefined ? 'bg-faint' : configured ? 'bg-ok' : 'bg-bad')} aria-hidden />
+          {status === undefined ? 'Checking' : configured ? (compact ? 'Meta AI' : `Meta AI · ${status.model}`) : 'API key missing'}
         </button>
       </DialogTrigger>
-      <DialogContent title="Meta Model API" description="Live extraction and transcription run on the server. The key never reaches the browser.">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-6 text-[13.5px]">
+      <DialogContent title="Meta AI connection" description="Extraction and photo reading run on the server. The key never reaches your browser.">
+        <div className="overflow-hidden rounded-[16px] bg-ground">
           {[
-            ['Key', configured ? 'Configured on the server' : 'Not configured. Set MODEL_API_KEY in Convex.'],
-            ['Model', <span className="font-mono text-[13px]">{status?.model ?? '…'}</span>],
-            ['Today', status ? `${status.dailyRunsUsed} of ${status.dailyRunCap} live calls (UTC day)` : '…'],
-            [
-              'Limits',
-              `${MAX_DOCUMENTS_PER_PROJECT} files per project, ${MAX_FILE_BYTES / 1024} KB per text file, ${MAX_TOTAL_CHARS.toLocaleString()} characters per extraction, ${status ? status.cooldownMs / 1000 : 30} s cooldown.`,
-            ],
+            ['Status', configured ? 'Connected' : 'Key not configured'],
+            ['Model', status?.model ?? '…'],
+            ['Used today', status ? `${status.dailyRunsUsed} of ${status.dailyRunCap} calls` : '…'],
+            ['Limits', `${MAX_DOCUMENTS_PER_PROJECT} files, ${MAX_FILE_BYTES / 1024} KB each, ${MAX_TOTAL_CHARS.toLocaleString()} characters per run`],
           ].map(([k, v], i) => (
-            <div key={i} className="contents">
-              <dt className="cap border-t border-line py-2.5">{k}</dt>
-              <dd className="border-t border-line py-2.5 text-ink-2">{v}</dd>
+            <div key={k} className={cn('flex justify-between gap-6 px-4 py-3 text-[14px]', i > 0 && 'border-t border-line-soft')}>
+              <span className="text-muted">{k}</span>
+              <span className="text-right font-medium">{v}</span>
             </div>
           ))}
-        </dl>
-        <div className="mt-5 flex items-center gap-3">
+        </div>
+        <div className="mt-4 flex items-center gap-3">
           <Button
+            variant="tint"
             disabled={!configured || testing}
             onClick={async () => {
               setTesting(true)
@@ -59,16 +56,14 @@ export function ConnectionStatus({ showUsage }: { showUsage?: boolean }) {
           >
             {testing ? <span className="working">Testing</span> : 'Test connection'}
           </Button>
-          <span className="cap">Lists models · uses no tokens</span>
+          <span className="text-[13px] text-muted">Uses no tokens</span>
         </div>
         {result && (
-          <p className={cn('mt-3 font-mono text-[12.5px]', result.ok ? 'text-ok' : 'text-review')} role="status">
-            {result.ok ? '✓' : '!'} {result.message}
+          <p className={cn('mt-3 text-[14px] font-medium', result.ok ? 'text-ok-text' : 'text-bad-text')} role="status">
+            {result.message}
           </p>
         )}
-        <p className="mt-5 border-t border-line pt-3 text-[12px] leading-relaxed text-muted">
-          Single-user demonstration. Use fictional or non-sensitive data only. Not certified for any regulated use.
-        </p>
+        <p className="mt-5 text-[12.5px] text-muted">Demo for the Meta AI Hackathon. Use fictional or non-sensitive data only.</p>
       </DialogContent>
     </Dialog>
   )

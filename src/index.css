@@ -1,47 +1,51 @@
 @import 'tailwindcss';
 
-/* Ledger design system: rules, not cards; ink, not tints; one highlighter.
-   Boxed controls use a 6px radius. Panes, rows, paper and cells stay square. */
+/* TraceForm design system: soft and grouped (iOS-inspired), black for action,
+   a highlighter for proof. Cards 16px; buttons, inputs, tiles 12px; pills round. */
 :root {
   color-scheme: light;
-  --ink: #0b0b0c;
-  --ink-2: #3f4147;
-  --muted: #6b6e76;
-  --faint: #9a9ca3;
-  --line: #e6e6e8;
-  --line-soft: #efeff1;
-  --line-strong: #d4d4d8;
-  --desk: #efeff1;
-  --wash: #f6f6f7;
-  --paper: #ffffff;
+  --ground: #f4f4f2;
+  --card: #ffffff;
+  --ink: #111113;
+  --ink-2: #3a3a3f;
+  --muted: #6b6b70;
+  --faint: #a1a1a6;
+  --line: #e3e3df;
+  --line-soft: #ededea;
+  --fill: rgb(17 17 19 / 0.06);
   --hl: #e4ff4f;
-  --ok: #15803d;
-  --conflict: #c2410c;
-  --conflict-bar: #ea580c;
-  --review: #b91c1c;
-  --live: #16a34a;
+  --ok: #34c759;
+  --ok-text: #1f7a3e;
+  --ok-soft: #e9f8ee;
+  --warn: #ff9500;
+  --warn-text: #b34700;
+  --warn-soft: #fff1db;
+  --bad: #ff3b30;
+  --bad-text: #c4271c;
+  --bad-soft: #ffe9e7;
 }
 
 @theme inline {
+  --color-ground: var(--ground);
+  --color-card: var(--card);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
-  --color-line-strong: var(--line-strong);
-  --color-desk: var(--desk);
-  --color-wash: var(--wash);
-  --color-paper: var(--paper);
+  --color-fill: var(--fill);
   --color-hl: var(--hl);
   --color-ok: var(--ok);
-  --color-conflict: var(--conflict);
-  --color-conflict-bar: var(--conflict-bar);
-  --color-review: var(--review);
-  --color-live: var(--live);
-  --radius-ctl: 6px;
-  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --color-ok-text: var(--ok-text);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-text: var(--bad-text);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
 }
 
@@ -55,10 +59,10 @@
     min-height: 100%;
   }
   body {
-    background: var(--paper);
+    background: var(--ground);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -77,60 +81,45 @@
 }
 
 @layer components {
-  /* Mono caption: anything the system says in small caps. */
-  .cap {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  /* Keyboard key */
-  .kbd {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    line-height: 16px;
-    padding: 0 4px;
-    min-width: 16px;
-    text-align: center;
-    border: 1px solid var(--line-strong);
-    border-bottom-width: 2px;
-    border-radius: var(--radius-ctl);
-    color: var(--ink-2);
-    background: #fff;
-  }
-  .kbd-dark {
-    background: #26272b;
-    border-color: #45474d;
-    color: #c4c5ca;
+  .card {
+    background: var(--card);
+    border-radius: 16px;
   }
   .hl {
     background: var(--hl);
+    border-radius: 3px;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
   }
-  .fn {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    vertical-align: super;
-    line-height: 0;
-    margin-left: 1px;
+  .cite {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--hl);
+    font: 700 10.5px/1 var(--font-sans);
+    vertical-align: 2px;
+    font-variant-numeric: tabular-nums;
   }
-  /* A sheet of paper on the desk. */
-  .paper {
-    background: var(--paper);
-    box-shadow:
-      0 1px 2px rgb(11 11 12 / 0.06),
-      0 12px 32px rgb(11 11 12 / 0.07);
+  .kbd {
+    display: inline-block;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 6px;
+    background: var(--fill);
+    font: 600 11px/18px var(--font-sans);
+    text-align: center;
+    color: var(--ink-2);
   }
 }
 
-/* The source highlight: highlighter marker, flashes ink when focused. */
+/* The source highlight: highlighter marker; flashes when focused. */
 @keyframes trace-flash {
   0% {
-    box-shadow: 0 0 0 3px var(--ink);
+    box-shadow: 0 0 0 4px rgb(17 17 19 / 0.85);
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
@@ -139,15 +128,13 @@
 .trace-mark {
   background: var(--hl);
   color: var(--ink);
+  border-radius: 3px;
   cursor: pointer;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
 .trace-mark[data-active='true'] {
   animation: trace-flash 900ms ease-out 1;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
 }
 
 @keyframes trace-draw {
@@ -166,13 +153,15 @@
 @keyframes fade-in {
   from {
     opacity: 0;
+    transform: translateY(2px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 .animate-fade-in {
-  animation: fade-in 160ms ease-out;
+  animation: fade-in 180ms ease-out;
 }
 
 @keyframes ellipsis {
@@ -207,10 +196,9 @@
 
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-color: #d3d3ce transparent;
 }
 
-/* Toasts are ink; keep their secondary text readable. */
 .toast-desc {
-  color: #c4c5ca !important;
+  color: #c7c7cc !important;
 }

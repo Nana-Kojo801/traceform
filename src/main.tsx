@@ -24,10 +24,10 @@ if (!url) {
             position="bottom-right"
             toastOptions={{
               style: {
-                background: '#0b0b0c',
+                background: '#111113',
                 border: '0',
                 color: '#ffffff',
-                borderRadius: 6,
+                borderRadius: 12,
                 fontFamily: 'Instrument Sans, sans-serif',
               },
               classNames: { description: 'toast-desc' },

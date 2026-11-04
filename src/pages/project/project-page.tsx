@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { Play } from 'lucide-react'
+import { ChevronLeft, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { TopBar, Crumb } from '@/components/top-bar'
-import { Button, Kbd } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { Segmented } from '@/components/ui/segmented'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { NotFoundPage } from '@/pages/not-found/not-found-page'
-import { RunLine } from './components/run-line'
+import { RunStatus } from './components/run-status'
 import { ExportMenu } from './components/export-menu'
 import { ReviewWorkspace } from './components/review-workspace'
 import { SourcesPanel } from './components/sources-panel'
@@ -56,11 +56,11 @@ export function ProjectPage() {
   const blocker = !status
     ? 'Checking configuration'
     : !status.keyConfigured
-      ? 'The Meta API key is not configured on the server. The precomputed sample still works.'
+      ? 'The Meta API key is not configured. The sample still works.'
       : parsedCount === 0
-        ? 'Add at least one source document first.'
+        ? 'Add a document first.'
         : fieldCount === 0
-          ? 'Add at least one form field first.'
+          ? 'Add a form field first.'
           : null
 
   const run = useCallback(async () => {
@@ -69,7 +69,7 @@ export function ProjectPage() {
     try {
       await startLive({ projectId: project._id })
       setTab('review')
-      toast('Extraction started', { description: 'Meta’s model is reading the sources. Answers appear once code has verified them.' })
+      toast('Reading your documents', { description: 'Answers appear once every quote has been checked.' })
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -91,80 +91,68 @@ export function ProjectPage() {
   if (project === null) return <NotFoundPage />
   const loading = project === undefined || documents === undefined || schema === undefined || workspace === undefined
 
-  const reviewed = workspace?.results.filter((r) => r.current.state !== 'unreviewed').length ?? 0
-  const open = (workspace?.results.length ?? 0) - reviewed
-
+  const open = workspace ? workspace.results.filter((r) => r.current.state === 'unreviewed').length : 0
   const tabs = (
-    <nav role="tablist" aria-label="Project sections" className="flex gap-6">
-      {(
-        [
-          ['review', 'Review', open, open > 0],
-          ['sources', 'Sources', documents?.length ?? 0, false],
-          ['form', 'Form', fieldCount, false],
-        ] as const
-      ).map(([id, label, count, alert]) => (
-        <button
-          key={id}
-          role="tab"
-          aria-selected={tab === id}
-          onClick={() => setTab(id)}
-          className={cn(
-            'flex h-12 items-center gap-1.5 border-b-2 text-sm font-medium lg:h-14 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
-            tab === id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink',
-          )}
-        >
-          {label}
-          <span className={cn('font-mono text-[11px]', alert ? 'text-conflict' : 'text-faint')}>{count}</span>
-        </button>
-      ))}
-    </nav>
+    <Segmented
+      role="tablist"
+      label="Project sections"
+      value={tab}
+      onChange={setTab}
+      className="w-full lg:w-auto"
+      options={[
+        { value: 'review', label: <>Review{open > 0 && <span className="cite">{open}</span>}</> },
+        { value: 'sources', label: 'Sources' },
+        { value: 'form', label: 'Form' },
+      ]}
+    />
   )
+  const runLabel = running || starting ? 'Running' : project?.isDemo ? 'Run live' : 'Run'
 
   return (
     <div className="flex flex-col lg:h-dvh">
-      <TopBar
-        backTo="/"
-        crumbs={
-          <>
-            <Crumb to="/">Projects</Crumb>
-            <Crumb>{project?.name ?? '…'}</Crumb>
-            {project?.isDemo && <span className="cap rounded-[6px] border border-line-strong px-1.5 py-0.5 text-[10px]">Sample</span>}
-          </>
-        }
-        mobileTitle={project?.name ?? '…'}
-        mobileSubtitle={workspace?.selected ? `${reviewed} / ${workspace.results.length} reviewed` : 'Not extracted yet'}
-        tabs={tabs}
-        actions={
-          <>
+      <header className="sticky top-0 z-30 border-b border-line bg-ground/90 backdrop-blur">
+        <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-4 px-4 lg:grid-cols-[1fr_auto_1fr] lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link to="/" aria-label="Back to projects" className="grid size-11 shrink-0 place-items-center rounded-full bg-card shadow-[0_1px_3px_rgb(0_0_0/0.08)] outline-none focus-visible:outline-2 focus-visible:outline-ink lg:hidden">
+              <ChevronLeft className="size-5" strokeWidth={2.8} />
+            </Link>
+            <Link to="/" className="hidden items-center gap-0.5 rounded-[12px] text-[16px] font-medium outline-none hover:opacity-70 focus-visible:outline-2 focus-visible:outline-ink lg:flex">
+              <ChevronLeft className="size-5" strokeWidth={2.6} />
+              Projects
+            </Link>
+            <span className="truncate text-[16px] font-semibold lg:hidden">{project?.name ?? ''}</span>
+          </div>
+          <div className="hidden lg:block">{tabs}</div>
+          <div className="flex items-center justify-end gap-2">
             {workspace && documents && project && <ExportMenu project={project} schema={schema ?? null} documents={documents} workspace={workspace} />}
             <Button
               variant="ink"
               onClick={run}
               disabled={!!blocker || running || starting}
-              title={blocker ?? (project?.isDemo ? 'Run Meta’s model live on the sample documents' : undefined)}
-              className="max-md:size-11 max-md:px-0"
+              title={blocker ?? 'Run extraction with Meta AI (R)'}
               aria-label={project?.isDemo ? 'Run live on sample documents' : 'Run extraction'}
+              className="max-md:size-11 max-md:rounded-full max-md:px-0"
             >
-              <Play className="md:hidden" fill="currentColor" />
-              <span className="hidden md:inline">{running || starting ? <span className="working">Running</span> : project?.isDemo ? 'Run live' : 'Run extraction'}</span>
-              <Kbd dark className="hidden md:inline-block">
-                R
-              </Kbd>
+              <Play fill="currentColor" className="size-3.5" />
+              <span className="max-md:hidden">{running || starting ? <span className="working">{runLabel}</span> : runLabel}</span>
             </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </header>
+
       {loading ? (
-        <div className="flex-1 p-5" aria-busy="true">
-          <div className="h-8 w-full animate-pulse bg-wash" />
-          <div className="mt-4 h-[60vh] animate-pulse bg-wash/60" />
+        <div className="flex-1 p-6" aria-busy="true">
+          <div className="h-9 w-80 animate-pulse rounded-[12px] bg-fill" />
+          <div className="mt-6 h-[60vh] animate-pulse rounded-[16px] bg-card opacity-60" />
         </div>
       ) : (
         <>
-          <RunLine workspace={workspace} />
-          {blocker && status && !workspace.selected && (
-            <p className="border-b border-line px-5 py-2 font-mono text-[11.5px] text-muted">{blocker}</p>
-          )}
+          <div className="flex flex-col gap-3 px-4 pb-4 pt-5 lg:flex-row lg:items-center lg:gap-3.5 lg:px-7 lg:pt-6">
+            <h1 className="hidden truncate text-[28px] font-bold tracking-[-0.02em] lg:block">{project.name}</h1>
+            <RunStatus workspace={workspace} isDemo={project.isDemo} />
+            {blocker && status && !workspace.selected && tab === 'review' && <span className="text-[13px] text-muted">{blocker}</span>}
+            <div className="lg:hidden">{tabs}</div>
+          </div>
           <div className={cn('lg:min-h-0 lg:flex-1', tab === 'review' ? 'lg:overflow-hidden' : 'lg:overflow-auto')}>
             {tab === 'review' && <ReviewWorkspace documents={documents} schema={schema} workspace={workspace} onGoTo={setTab} />}
             {tab === 'sources' && <SourcesPanel projectId={projectId} documents={documents} />}

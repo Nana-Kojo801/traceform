@@ -36,6 +36,8 @@ export const list = query({
           fieldCount: schema?.fields.length ?? 0,
           answers,
           reviewedCount: results.filter((r) => r.current.state !== 'unreviewed').length,
+          totalQuotes: results.reduce((n, r) => n + r.raw.evidence.length, 0),
+          verifiedQuotes: results.reduce((n, r) => n + r.raw.evidence.filter((e) => e.sourceMatchVerified).length, 0),
           lastRun: lastRun
             ? {
                 status: lastRun.status,
