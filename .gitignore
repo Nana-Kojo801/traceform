@@ -27,3 +27,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Demo recordings and local scratch
+demo/*.mp4
+demo/*.mov
+*.mht

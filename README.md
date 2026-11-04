@@ -6,6 +6,8 @@ You upload messy documents and define a form. TraceForm fills the form in using 
 
 Built for the **Meta Global AI Developer Hackathon 2026**, Indie Developer track, "Build for Your World."
 
+**Live demo: https://traceform-five.vercel.app/** (open "Open the sample" on the home page; no sign-in needed).
+
 > Use fictional or non-sensitive data only. TraceForm is a hackathon demonstration, not certified for any regulated use. It gives no legal, medical, or financial advice.
 
 ---
@@ -39,13 +41,13 @@ All calls go to the **Responses API** (`POST https://api.meta.ai/v1/responses`) 
 
 ## Try it
 
-- **Try demo** (no API key needed) loads a fictional grant-intake project with **precomputed** results. It is clearly badged "Sample dataset / precomputed demo, not live AI". The precomputed output is a hand-authored fixture that goes through the same pipeline and verifier as live runs. It deliberately contains one altered quote, so you can see a fabricated citation caught and repaired.
-- **Run live on sample documents** sends the same three documents to Meta's model for real.
-- **New project**: upload up to 5 TXT, DOCX, or PDF files, or photos of pages, build a form (or load the sample schema), then select **Extract with Meta AI**. Photos and scanned PDFs are transcribed by Muse Spark vision first.
+- **Open the sample** loads a fictional grant-intake project (an application, a follow-up email, and board minutes). Use the run picker under the title to switch between a **live Meta run** and **"Sample data"**. The "Sample data" run is a precomputed, hand-authored fixture, clearly labeled "Sample data, not live AI". It goes through the same pipeline and verifier as live runs, and it deliberately contains one altered quote so you can see a fabricated citation caught and repaired ("Households served").
+- **Run live** sends the sample documents to Meta's model for real (about 20 to 40 seconds).
+- **New project**: add up to 5 TXT, DOCX, or PDF files, or photos of pages, set up a form (or choose "Use sample form"), then press **Run**. Photos and scanned PDFs are read by Muse Spark vision first.
 
 Sample files for upload testing are in [`public/samples`](public/samples). They include a photographed site-visit note (`.jpg`) and the same page as an image-only scanned PDF.
 
-## Reviewing quickly
+## Interface
 
 The interface is inspired by iOS but has its own identity: soft grouped cards on a warm grey background, black for actions, a yellow-green highlighter for quoted text, and numbered citation chips that tie each answer to its sentence in the source. Each screen has one large title, one status pill, and the content.
 
@@ -56,7 +58,7 @@ Keyboard shortcuts on the review screen: `↑`/`↓` (or `j`/`k`) move between f
 ## Architecture
 
 ```
-Browser (React + Vite + Tailwind + shadcn-style UI)
+Browser (React + Vite + Tailwind + Radix primitives)
   ├─ parses TXT / DOCX (mammoth) / PDF (pdfjs-dist, page-aware) locally
   ├─ photos / scanned PDF pages → JPEG → Convex storage → transcribe action (Muse Spark vision)
   ├─ review workspace: field list · answer + verification · source viewer with highlighted quotes
@@ -94,7 +96,7 @@ npx convex env set MODEL_API_KEY <your-meta-key>   # server-side only
 npm run dev               # in a second terminal: http://localhost:5173
 ```
 
-Without `MODEL_API_KEY`, the app still runs. The demo works, and the extract button explains that the key is missing.
+Without `MODEL_API_KEY`, the app still runs. The demo works, and the Run button explains that the key is missing.
 
 Other commands:
 
@@ -104,37 +106,33 @@ npm run build       # type-check + production build
 npm run samples     # regenerate public/samples from shared/sample/sample-documents.ts
 ```
 
-## Deploy (manual steps)
+## Deploy
 
-Backend (Convex production):
+**Current deployment:** the frontend is on Vercel (https://traceform-five.vercel.app/) and talks to a **Convex development deployment**, not a separate production deployment. That is a deliberate shortcut for the hackathon. The Meta API key is set only on that Convex deployment. Because the demo is single-user with no sign-in, everyone who opens it shares the same data, and a daily cap limits live Meta calls.
 
-```bash
-npx convex deploy
-npx convex env set --prod MODEL_API_KEY <your-meta-key>
-npx convex env set --prod META_MODEL muse-spark-1.3
-npx convex env set --prod META_API_BASE https://api.meta.ai/v1
-```
+To deploy your own copy:
 
-Frontend (Vercel). `vercel.json` is included (Vite build, SPA rewrites).
+1. **Backend (Convex).** `npx convex deploy` for a production deployment (or keep using a dev deployment), then set the secrets on it:
+   ```bash
+   npx convex env set --prod MODEL_API_KEY <your-meta-key>
+   npx convex env set --prod META_MODEL muse-spark-1.3
+   npx convex env set --prod META_API_BASE https://api.meta.ai/v1
+   ```
+2. **Frontend (Vercel).** Import the repo (framework: Vite; `vercel.json` sets the build and SPA rewrites). Set one environment variable: `VITE_CONVEX_URL` = your Convex deployment URL (for example `https://<name>.convex.cloud`). The Meta key is **not** set in Vercel.
+3. Optional: to deploy Convex functions on every Vercel build, set the build command to `npx convex deploy --cmd 'npm run build'` and add a Convex deploy key as `CONVEX_DEPLOY_KEY`.
 
-1. Import the GitHub repo in Vercel (framework: Vite).
-2. Set one environment variable: `VITE_CONVEX_URL` = your Convex deployment URL (for example `https://<name>.convex.cloud`). The Meta key is **not** set in Vercel; it lives only in Convex.
-3. Deploy. To have Vercel also deploy Convex functions on each build, change the build command to `npx convex deploy --cmd 'npm run build'` and add a Convex production deploy key as `CONVEX_DEPLOY_KEY`.
-
-Alternatively, build locally with `VITE_CONVEX_URL=<prod url> npm run build` and serve `dist/` from any static host with SPA fallback to `index.html`.
-
-**Deployment status:** not deployed yet. No live URL is claimed.
+You can also build locally with `VITE_CONVEX_URL=<url> npm run build` and serve `dist/` from any static host with a fallback to `index.html`.
 
 ## Built during the hackathon
 
-- **First commit:** 2026-11-04 17:49 UTC, during the event. The full history is in git.
+- **First commit:** 2026-11-04 17:49 UTC, during the event (Oct 26 to Nov 4). The repository started empty, and the full history is in git.
 - **Original work (all written during the event):** the product concept implementation, the verification engine, the extraction, repair, and auditor pipeline, vision transcription, the prompts, the Convex schema and functions, the review UI, the exports, the sample documents and images (fictional, generated during the event), and the tests.
-- **Third-party libraries:** React, React Router, Vite, TypeScript, Tailwind CSS, Radix UI primitives (via shadcn/ui-style components), Lucide icons, Sonner (toasts), Motion (animation), Convex, Zod, mammoth (DOCX text), pdfjs-dist (PDF text), clsx, tailwind-merge, class-variance-authority, and Vitest. Fonts: Geist and Geist Mono from Google Fonts.
+- **Third-party libraries:** React, React Router, Vite, TypeScript, Tailwind CSS, Radix UI (dialog, slot), Lucide icons, Sonner (toasts), Motion (animation), Convex, Zod, mammoth (DOCX text), pdfjs-dist (PDF text), clsx, tailwind-merge, class-variance-authority, and Vitest. Fonts: Instrument Sans and Newsreader from Google Fonts.
 - **AI model:** Meta Muse Spark (`muse-spark-1.3`) through the Meta Model API.
 
 ## Known limitations
 
-- Single-user demonstration with no authentication. Anyone with the URL shares the same projects.
+- Single-user demonstration with no authentication. Anyone with the URL shares the same projects and can edit or delete them. The live demo runs on a Convex development deployment.
 - Quote matching is exact after normalization. A correct quote that the model shortens with an ellipsis is rejected as unverified, which is the intended strict behavior.
 - Vision transcription is model output. It can misread text, so citations are verified against the transcription, not the image. The UI labels it and offers a side-by-side check with the original. Audio sources (Muse Voice Transcribe) were not built.
 - The auditor's second opinion is advisory. It can be wrong in either direction, and it is never used to change a status.
@@ -143,8 +141,12 @@ Alternatively, build locally with `VITE_CONVEX_URL=<prod url> npm run build` and
 
 ## Contributors
 
-- [Nana-Kojo801](https://github.com/Nana-Kojo801) (author)
-- Built with Claude Code as a coding assistant
+- [Nana-Kojo801](https://github.com/Nana-Kojo801) (Nana Kojo Atta-Benyah), author
+- Built with Claude Code as a coding assistant. Git commits are authored by the assistant under the author's direction.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
 
 ## Docs
 

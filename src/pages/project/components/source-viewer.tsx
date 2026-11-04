@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from 'convex/react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -74,15 +74,11 @@ export function SourceViewer({ documents, viewDocId, onViewDoc, result, active, 
   const effectiveMode: SourceMode = doc?.transcribed ? mode : 'text'
   const images = useQuery(api.documents.pageImages, doc?.transcribed && effectiveMode !== 'text' ? { documentId: doc._id as Id<'documents'> } : 'skip')
 
-  const evidence = useMemo(() => (plain ? [] : (result?.raw.evidence ?? [])), [plain, result])
-  const marks: Mark[] = useMemo(
-    () =>
-      evidence
-        .map((e, i) => ({ e, i }))
-        .filter(({ e }) => e.sourceMatchVerified && e.documentId === doc?._id && e.startOffset !== null && e.endOffset !== null)
-        .map(({ e, i }) => ({ start: e.startOffset!, end: e.endOffset!, evidenceIndex: i })),
-    [evidence, doc],
-  )
+  const evidence = plain ? [] : (result?.raw.evidence ?? [])
+  const marks: Mark[] = evidence
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.sourceMatchVerified && e.documentId === doc?._id && e.startOffset !== null && e.endOffset !== null)
+    .map(({ e, i }) => ({ start: e.startOffset!, end: e.endOffset!, evidenceIndex: i }))
   const verifiedIdx = evidence.map((e, i) => (e.sourceMatchVerified ? i : -1)).filter((i) => i >= 0)
   const pos = active ? verifiedIdx.indexOf(active.index) : -1
 

@@ -1,6 +1,5 @@
 {
   "name": "traceform",
-  "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -16,7 +15,6 @@
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",
     "@radix-ui/react-slot": "^1.5.0",
-    "@radix-ui/react-tabs": "^1.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.49.0",
@@ -42,5 +40,13 @@
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.1.0"
-  }
+  },
+  "description": "TraceForm: fill forms from messy documents with Meta Muse Spark. Every answer links to a verified quote.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nana-Kojo801/traceform"
+  },
+  "author": "Nana Kojo Atta-Benyah",
+  "private": true
 }

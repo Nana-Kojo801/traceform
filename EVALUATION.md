@@ -20,7 +20,7 @@ The ground truth is the sample project (spec section 7). It has three fictional 
 
 ## Live extraction runs on the sample documents
 
-The runs were triggered with "Run live on sample documents" (the `runs:startLive` mutation), and results were read back from Convex.
+The runs were triggered with the "Run live" button on the sample project (the `runs:startLive` mutation), and results were read back from Convex.
 
 | Run | Duration | Model calls | Input tokens | Output tokens | Correct fields | Hallucinated values | First-pass unverified citations | Conflict flagged | Missing left blank |
 |---|---|---|---|---|---|---|---|---|---|

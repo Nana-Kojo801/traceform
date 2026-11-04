@@ -1,69 +1,67 @@
 # TraceForm: 3-minute demo script
 
-Everything shown was built during the event. Record at 1440×900 or larger. Before recording, open the sample project once, select the precomputed run, and select **Restore extracted** on any field you touched while rehearsing (or reload the demo).
+Everything shown was built during the event. Record at 1440×900 or larger. Before recording, make sure the sample project has no leftover review edits (use "Restore original" or "Clear this answer" on any field you touched).
+
+Live app: https://traceform-five.vercel.app/
 
 ---
 
-### 0:00 to 0:20. The problem
+### 0:00 to 0:15. The problem
 
-**Screen:** dashboard.
+**Screen:** home page.
 
-> "Small nonprofits fill out intake and grant forms by copying facts out of emails, letters, and meeting minutes. AI can fill a form, but you can't trust it: which answers are real, which are guessed, and which quietly picked one of two contradicting numbers? TraceForm fills the form with Meta's model and accounts for every answer."
+> "Small organizations copy facts from emails, letters and scans into intake forms. AI can fill a form, but you can't tell which answers are real, which were guessed, and which quietly picked one of two contradicting numbers. TraceForm fills the form with Meta's model and shows proof for every answer."
 
-### 0:20 to 0:55. Upload and live Meta extraction
+### 0:15 to 0:30. The sample
 
-**Screen:** open **Try demo** → **Sources** tab. Show the three documents (two TXT, one real DOCX), then preview the DOCX text.
+**Screen:** select **Open the sample**, then the **Sources** tab. Show the three documents (two text files and one Word file).
 
-> "Here's a grant intake: an application narrative, a follow-up email as a Word file, and board minutes. Text is extracted in the browser, page- and paragraph-aware."
+> "A fictional grant application, a follow-up email as a Word file, and board minutes."
 
-Select the **Form** tab briefly to show the 9 fields with types (number, date, single-select).
+### 0:30 to 1:05. Live Meta extraction
 
-Select **Run live on sample documents**. The banner shows "Live extraction running".
+**Screen:** back to **Review**, press **Run live** (or R). The status pill turns black: "Reading your documents". When it finishes, the pill reads "Live result".
 
-> "This sends the documents to Meta's Muse Spark through the Responses API with schema-constrained JSON output. The model must answer every field with a verbatim quote, or say it's missing."
+> "This sends the documents to Meta's Muse Spark with schema-constrained JSON output. Every field must come back with a verbatim quote, or be marked missing. Then code checks every quote against the source."
 
-When it finishes (about 15 to 20 s), the banner reads "Live result from muse-spark-1.3".
+If you speed up the wait, say "sped up" on screen.
 
-### 0:55 to 1:20. Click a field and see its evidence
+### 1:05 to 1:30. Evidence
 
-**Screen:** Review tab. Select **Project title**, then **Start date**.
+**Screen:** select **Project title**, then **Start date**. The source pane scrolls to the highlighted sentence, and its number chip matches the one in the answer. Point at **Checks**.
 
-> "Every answer is tied to its source. I click a field and the exact passage is highlighted in the document. And this check isn't the model's word: code searched the document for the quote. That's 'source match'. Whether the quote actually answers the field is 'answer validation', and that stays with a human."
+> "Each answer is tied to its sentence. 'Quote found in the source' was checked by code, not by the model. The second opinion is a separate Meta call and is advisory only."
 
-Point at the two Verification boxes.
+### 1:30 to 1:55. The conflict
 
-### 1:20 to 1:45. The conflict
+**Screen:** select **Requested amount**. Two values: $48,000 ① and $54,000 ②. Select each source to show its sentence, then press **2** to choose $54,000, and **Approve**.
 
-**Screen:** select **Requested amount**.
+> "The application asks for $48,000, and a later email revises it to $54,000. TraceForm doesn't pick one. Both sides are shown, and a person chooses."
 
-> "The narrative asks for $48,000. A later email revises it to $54,000 for cold-storage equipment. TraceForm doesn't pick one. Both sides are shown with verified citations." Select **Show in source** on each side.
+### 1:55 to 2:05. Blank, not guessed
 
-### 1:45 to 2:00. The missing field
+**Screen:** select **Fiscal sponsor**: "Not in any source".
 
-**Screen:** select **Fiscal sponsor**.
+> "No document mentions a fiscal sponsor, so it stays blank. TraceForm never guesses."
 
-> "No document mentions a fiscal sponsor, so the field stays blank. TraceForm never infers a fact from absence."
+### 2:05 to 2:30. A fabricated citation, caught and repaired
 
-### 2:00 to 2:30. A fabricated citation caught and repaired
+**Screen:** in the run picker under the title, choose **Sample data** (the pill reads "Sample data, not live AI"). Open **Households served**: Checks shows "Fixed on a second try" with the struck-out first quote.
 
-**Screen:** in the run selector, switch to **Precomputed demo** (badged "Sample dataset / precomputed demo, not live AI"). Select **Households served**.
+> "This sample run is precomputed, and it includes a deliberately altered quote. Code couldn't find it in the source, so the field was flagged. Meta's model then got one chance to re-cite it word for word, and code verified the new quote. We also ran this live against Meta with fake citations: all three were caught."
 
-> "This precomputed sample contains a deliberately altered quote, the kind of citation a model can fabricate. The verifier couldn't find it in the source, so the field was flagged. Then the repair pass ran: Meta's model got only that field and the failed quote, and had to re-cite verbatim or give up. It re-cited, code verified the new quote, and the field is marked 'Fixed on second pass'. The rejected quote stays visible, struck through."
+### 2:30 to 2:45. Photos
 
-Optionally mention: "We ran the same repair loop live against Meta with injected fake citations. All 3 were caught, the 2 real facts were re-cited, and the fake fiscal sponsor was withdrawn as missing. That's in EVALUATION.md."
+**Screen:** open the **Site visit note** project, **Sources** tab, **Compare** view.
 
-**Optional, if time allows (about 10 s):** on the live run, open **Requested amount** and point at **Model second opinion**. "A separate auditor call to Meta gives an advisory second opinion. Here it notes the email is a later revision. It's a hint for the reviewer, never proof, and it never changes a status." Alternatively, show a project where a **photo of a page** was uploaded: "Photos and scans are transcribed by Muse Spark vision, labeled as model transcription, and citations are verified against that transcription. You can compare it with the original."
+> "Photos and scans are read by Muse Spark vision. The text is labeled as read by Meta AI, quotes are verified against it, and you can compare it with the original."
 
-### 2:30 to 2:50. Resolve and export
+### 2:45 to 3:00. Export and close
 
-**Screen:** back to the live run. Select **Requested amount** → **Use this value** on $54,000. Approve **Organization name**. Edit a value and show the "Saving… Saved" indicator. Then select **CSV** and **JSON**, and open the CSV.
+**Screen:** **Export**, then **CSV**.
 
-> "I resolve the conflict, approve, edit, and it all autosaves. Exports contain the reviewed values, not just the raw extraction. The JSON keeps every citation and its verification status."
-
-### 2:50 to 3:00. What Meta's model does at each step
-
-> "Meta's model reads scans, extracts the answers, repairs its own citations, and gives a second opinion. Deterministic code does the verifying. A person makes the final call. TraceForm: every answer, accounted for."
+> "Meta's model reads, extracts, repairs and gives a second opinion. Code verifies. A person decides. TraceForm: every answer, accounted for."
 
 ---
 
-**Claims to avoid on camera:** do not call the system certified or compliant, do not say it gives legal or medical advice, and do not present the precomputed run as live.
+**Claims to avoid on camera:** do not call the system certified or compliant, do not say it gives legal or medical advice, and do not present the "Sample data" run as live.
