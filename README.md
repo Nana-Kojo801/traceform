@@ -45,6 +45,12 @@ All calls go to the **Responses API** (`POST https://api.meta.ai/v1/responses`) 
 
 Sample files for upload testing are in [`public/samples`](public/samples). They include a photographed site-visit note (`.jpg`) and the same page as an image-only scanned PDF.
 
+## Reviewing quickly
+
+The review screen is built for keyboard use: `↑`/`↓` (or `j`/`k`) move between fields, `A` approves, `E` edits the value, `1`/`2` pick a side of a conflict, `[`/`]` step through citations, `/` searches, and `R` starts a run. On phones, the review screen splits into Fields, Answer and Source tabs, with a sticky Approve bar.
+
+The interface uses a "ledger" design: ink on paper, thin lines instead of cards, numbered footnote citations, and a single highlighter colour for quoted passages. Anything the system reports is set in monospace, and anything a document says is set in serif.
+
 ## Architecture
 
 ```

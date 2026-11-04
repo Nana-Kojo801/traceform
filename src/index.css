@@ -209,3 +209,8 @@
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
+
+/* Toasts are ink; keep their secondary text readable. */
+.toast-desc {
+  color: #c4c5ca !important;
+}

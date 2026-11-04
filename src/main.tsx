@@ -30,6 +30,7 @@ if (!url) {
                 borderRadius: 6,
                 fontFamily: 'Instrument Sans, sans-serif',
               },
+              classNames: { description: 'toast-desc' },
             }}
           />
         </BrowserRouter>
