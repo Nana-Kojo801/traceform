@@ -113,11 +113,11 @@ npx convex env set --prod META_MODEL muse-spark-1.3
 npx convex env set --prod META_API_BASE https://api.meta.ai/v1
 ```
 
-Frontend (Vercel). `vercel.json` is included and runs `npx convex deploy --cmd 'npm run build'`.
+Frontend (Vercel). `vercel.json` is included (Vite build, SPA rewrites).
 
 1. Import the GitHub repo in Vercel (framework: Vite).
-2. In the Convex dashboard, create a **production deploy key**. Add it to Vercel as `CONVEX_DEPLOY_KEY`.
-3. Deploy. The build deploys the Convex functions and injects `VITE_CONVEX_URL` automatically.
+2. Set one environment variable: `VITE_CONVEX_URL` = your Convex deployment URL (for example `https://<name>.convex.cloud`). The Meta key is **not** set in Vercel; it lives only in Convex.
+3. Deploy. To have Vercel also deploy Convex functions on each build, change the build command to `npx convex deploy --cmd 'npm run build'` and add a Convex production deploy key as `CONVEX_DEPLOY_KEY`.
 
 Alternatively, build locally with `VITE_CONVEX_URL=<prod url> npm run build` and serve `dist/` from any static host with SPA fallback to `index.html`.
 
