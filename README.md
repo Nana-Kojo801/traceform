@@ -141,7 +141,7 @@ You can also build locally with `VITE_CONVEX_URL=<url> npm run build` and serve 
 
 ## Contributors
 
-- [Nana-Kojo801](https://github.com/Nana-Kojo801) (Nana Kojo Atta-Benyah), author
+- Nana Kojo ([@Nana-Kojo801](https://github.com/Nana-Kojo801) on GitHub, htaik on the hackathon platform), author
 - Built with Claude Code as a coding assistant. Git commits are authored by the assistant under the author's direction.
 
 ## License
