@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent } from 'react'
-import { Search, Wrench } from 'lucide-react'
+import { MessageSquareWarning, Search, Wrench } from 'lucide-react'
 import type { FieldStatus, FormField } from '@shared/types'
 import { Input } from '@/components/ui/input'
 import { ReviewBadge, StatusBadge } from '@/components/status-badge'
@@ -151,6 +151,9 @@ export function FieldList({ schema, resultsByField, selectedId, onSelect, filter
                         {f.label}
                         {f.required && <span className="ml-0.5 text-subtle-foreground" aria-label="required">*</span>}
                       </span>
+                      {r?.raw.audit?.verdict === 'disagrees' && (
+                        <MessageSquareWarning className="size-3.5 text-review" aria-label="Model second opinion disagrees" />
+                      )}
                       {r?.raw.repair?.outcome === 'fixed' && (
                         <Wrench className="size-3.5 text-accent" aria-label="Fixed on second pass" />
                       )}

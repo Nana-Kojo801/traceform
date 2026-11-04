@@ -100,3 +100,47 @@ export function parseModelOutput(text: string, expectedFields: FormField[]): Par
   })
   return { ok: true, output: { fields } }
 }
+
+// ---------- auditor pass ("model second opinion", advisory only) ----------
+
+export const auditOutputSchema = z.object({
+  audits: z.array(
+    z.object({
+      fieldId: z.string(),
+      verdict: z.enum(['agrees', 'disagrees', 'unsure']),
+      note: z.string(),
+    }),
+  ),
+})
+
+export type AuditOutput = z.infer<typeof auditOutputSchema>
+
+export const auditOutputJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['audits'],
+  properties: {
+    audits: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['fieldId', 'verdict', 'note'],
+        properties: {
+          fieldId: { type: 'string' },
+          verdict: { type: 'string', enum: ['agrees', 'disagrees', 'unsure'] },
+          note: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const
+
+export function parseAuditOutput(text: string): AuditOutput | null {
+  try {
+    const parsed = auditOutputSchema.safeParse(JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, '')))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}

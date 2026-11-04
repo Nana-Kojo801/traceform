@@ -34,6 +34,7 @@ export function ConflictCompare({ field, result, docName, active, onShowEvidence
           return (
             <div
               key={i}
+              data-trace-source={isActive && e.sourceMatchVerified ? 'true' : undefined}
               className={cn(
                 'flex flex-col rounded-xl border bg-surface p-3 transition-colors',
                 isChosen ? 'border-accent/70' : isActive ? 'border-conflicting/60' : 'border-border',

@@ -145,3 +145,17 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+
+/* Connector from evidence card to highlighted passage (desktop). */
+@keyframes trace-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.trace-connector-path {
+  stroke-dasharray: 1;
+  animation: trace-draw 600ms ease-out both;
+}

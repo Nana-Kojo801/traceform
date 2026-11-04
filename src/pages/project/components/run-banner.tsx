@@ -48,6 +48,9 @@ export function RunBanner({ workspace, isDemo }: { workspace: Workspace; isDemo:
               {selected.stats.repairsAttempted > 0 && ` · ${selected.stats.repairsFixed} of ${selected.stats.repairsAttempted} fixed by repair pass`}
               {!selected.isPrecomputed &&
                 ` · ${selected.stats.modelCalls} model call${selected.stats.modelCalls === 1 ? '' : 's'} · ${(selected.stats.durationMs / 1000).toFixed(1)}s`}
+              {selected.stats.audit?.ran &&
+                ` · second opinion: ${selected.stats.audit.agrees} agree${selected.stats.audit.disagrees ? `, ${selected.stats.audit.disagrees} disagree` : ''}${selected.stats.audit.unsure ? `, ${selected.stats.audit.unsure} unsure` : ''}`}
+              {selected.stats.audit?.error && ' · second opinion unavailable'}
             </span>
           )}
           {completed.length > 1 && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from 'convex/react'
-import { Check, CircleCheck, CircleDashed, CircleX, Eraser, Loader2, Quote, RotateCcw, ShieldCheck, Wrench } from 'lucide-react'
+import { Check, MessageSquareQuote, CircleCheck, CircleDashed, CircleX, Eraser, Loader2, Quote, RotateCcw, ShieldCheck, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@convex/_generated/api'
 import type { FormField } from '@shared/types'
@@ -35,7 +35,7 @@ interface Props {
   sectionTitle: string
 }
 
-export function FieldDetail({ field, result, documents, active, onShowEvidence, sectionTitle }: Props) {
+export function FieldDetail({ field, result, documents, active, onShowEvidence, sectionTitle, isPrecomputed }: Props) {
   const edit = useMutation(api.review.edit)
   const approve = useMutation(api.review.approve)
   const clear = useMutation(api.review.clear)
@@ -288,6 +288,7 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
                 return (
                   <li key={i}>
                     <button
+                      data-trace-source={isActive && e.sourceMatchVerified ? 'true' : undefined}
                       onClick={() => e.sourceMatchVerified && onShowEvidence(i)}
                       disabled={!e.sourceMatchVerified}
                       className={cn(
@@ -316,6 +317,33 @@ export function FieldDetail({ field, result, documents, active, onShowEvidence, 
                 )
               })}
             </ul>
+          </div>
+        )}
+
+        {(r.raw.status === 'supported' || r.raw.status === 'conflicting') && (
+          <div className="rounded-xl border border-border p-3">
+            <h3 className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+              <MessageSquareQuote className="size-3.5 text-muted-foreground" aria-hidden /> Model second opinion
+              <span className="font-normal text-subtle-foreground">· advisory, not proof</span>
+              {r.raw.audit && (
+                <Badge tone={r.raw.audit.verdict === 'agrees' ? 'supported' : r.raw.audit.verdict === 'disagrees' ? 'review' : 'missing'} className="ml-auto">
+                  {r.raw.audit.verdict === 'agrees'
+                    ? r.raw.status === 'conflicting'
+                      ? 'Agrees: real conflict'
+                      : 'Agrees'
+                    : r.raw.audit.verdict === 'disagrees'
+                      ? 'Disagrees'
+                      : 'Unsure'}
+                </Badge>
+              )}
+            </h3>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {r.raw.audit
+                ? r.raw.audit.note
+                : isPrecomputed
+                  ? 'Not available for the precomputed demo. Live runs ask a separate auditor call whether each verified quote actually answers its field.'
+                  : 'No second opinion was recorded for this answer.'}
+            </p>
           </div>
         )}
 

@@ -3,8 +3,15 @@ import { action, internalAction } from './_generated/server'
 import { internal } from './_generated/api'
 import { toSourceDocument } from './helpers'
 import { callStructured, listModels, ModelApiError, type ModelConfig } from '../shared/model-provider'
-import { parseModelOutput, type ModelOutput } from '../shared/model-output'
-import { buildExtractionInput, buildRepairInput, EXTRACTION_INSTRUCTIONS, REPAIR_INSTRUCTIONS } from '../shared/prompt'
+import { auditOutputJsonSchema, parseAuditOutput, parseModelOutput, type ModelOutput } from '../shared/model-output'
+import {
+  AUDIT_INSTRUCTIONS,
+  buildAuditInput,
+  buildExtractionInput,
+  buildRepairInput,
+  EXTRACTION_INSTRUCTIONS,
+  REPAIR_INSTRUCTIONS,
+} from '../shared/prompt'
 import { runPipeline } from '../shared/pipeline'
 import { MAX_PARSE_RETRIES } from '../shared/limits'
 import type { FormField } from '../shared/types'
@@ -75,6 +82,19 @@ export const execute = internalAction({
           const out = await callValidated(REPAIR_INSTRUCTIONS, buildRepairInput(field, d, failed), [field])
           return out.fields.find((f) => f.fieldId === field.id)
         },
+        audit:
+          process.env.META_AUDITOR === 'off'
+            ? undefined
+            : async (items) => {
+                counters.modelCalls++
+                const res = await callStructured({ ...cfg, reasoningEffort: 'low' }, AUDIT_INSTRUCTIONS, buildAuditInput(items), {
+                  name: 'traceform_audit',
+                  schema: auditOutputJsonSchema,
+                })
+                counters.inputTokens += res.inputTokens
+                counters.outputTokens += res.outputTokens
+                return parseAuditOutput(res.text)
+              },
         onProgress: (progress) => ctx.runMutation(internal.runs.setProgress, { runId, progress }),
       })
       await ctx.runMutation(internal.runs.complete, {

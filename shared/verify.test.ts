@@ -229,3 +229,34 @@ describe('pipeline with repair pass (precomputed fixture)', () => {
     expect(results.households_served.repair?.outcome).toBe('still_unverified')
   })
 })
+
+describe('auditor pass (advisory)', () => {
+  it('attaches verdicts without changing status', async () => {
+    const { results, stats } = await runPipeline(SAMPLE_SCHEMA.fields, docs, {
+      extract: async () => PRECOMPUTED_FIRST_PASS,
+      repair: async (f) => PRECOMPUTED_REPAIRS[f.id],
+      audit: async (items) => ({
+        audits: items.map((it) => ({
+          fieldId: it.field.id,
+          verdict: it.field.id === 'project_location' ? ('disagrees' as const) : ('agrees' as const),
+          note: 'n',
+        })),
+      }),
+    })
+    expect(results.project_location.audit?.verdict).toBe('disagrees')
+    expect(results.project_location.status).toBe('supported')
+    expect(results.fiscal_sponsor.audit).toBeUndefined()
+    expect(stats.audit).toMatchObject({ ran: true, agrees: 7, disagrees: 1 })
+  })
+
+  it('an auditor failure does not fail the run', async () => {
+    const { results, stats } = await runPipeline(SAMPLE_SCHEMA.fields, docs, {
+      extract: async () => PRECOMPUTED_FIRST_PASS,
+      repair: async (f) => PRECOMPUTED_REPAIRS[f.id],
+      audit: async () => null,
+    })
+    expect(stats.audit.ran).toBe(false)
+    expect(stats.audit.error).toMatch(/not valid/)
+    expect(results.project_title.status).toBe('supported')
+  })
+})

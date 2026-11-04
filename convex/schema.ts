@@ -70,6 +70,15 @@ export const rawResultV = v.object({
       note: v.string(),
     }),
   ),
+  audit: v.optional(
+    v.union(
+      v.null(),
+      v.object({
+        verdict: v.union(v.literal('agrees'), v.literal('disagrees'), v.literal('unsure')),
+        note: v.string(),
+      }),
+    ),
+  ),
 })
 
 export const currentResultV = v.object({
@@ -88,6 +97,15 @@ export const runStatsV = v.object({
   repairsNowMissing: v.number(),
   repairsStillUnverified: v.number(),
   statusCounts: v.record(v.string(), v.number()),
+  audit: v.optional(
+    v.object({
+      ran: v.boolean(),
+      agrees: v.number(),
+      disagrees: v.number(),
+      unsure: v.number(),
+      error: v.union(v.string(), v.null()),
+    }),
+  ),
   modelCalls: v.number(),
   parseRetries: v.number(),
   inputTokens: v.number(),

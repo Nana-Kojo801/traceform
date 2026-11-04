@@ -2,7 +2,7 @@
 // pass per field with unverified citations -> deterministic re-verification.
 // The model calls are injected so the precomputed demo and live runs share code.
 
-import type { ModelField, ModelOutput } from './model-output'
+import type { AuditOutput, ModelField, ModelOutput } from './model-output'
 import type { FormField, RawResult, SourceDocument } from './types'
 import { applyRepair, markRepairFailed, needsRepair, verifyField } from './verify'
 import { FIELDS_PER_CALL } from './limits'
@@ -16,7 +16,16 @@ export interface PipelineHooks {
     docs: SourceDocument[],
     failed: { documentId: string; quote: string }[],
   ) => Promise<ModelField | undefined>
+  /** Optional advisory auditor pass over verified answers. Must not throw for bad output; return null. */
+  audit?: (items: AuditItem[]) => Promise<AuditOutput | null>
   onProgress?: (message: string) => unknown
+}
+
+export interface AuditItem {
+  field: FormField
+  value: string | null
+  status: string
+  quotes: { documentName: string; quote: string; value: string | null }[]
 }
 
 export interface PipelineStats {
@@ -28,6 +37,7 @@ export interface PipelineStats {
   repairsNowMissing: number
   repairsStillUnverified: number
   statusCounts: Record<string, number>
+  audit: { ran: boolean; agrees: number; disagrees: number; unsure: number; error: string | null }
 }
 
 export interface PipelineResult {
@@ -105,6 +115,41 @@ export async function runPipeline(
     }
   }
 
+  // Advisory auditor pass: a separate model call judges whether each verified
+  // quote actually answers its field. It never changes status.
+  const audit = { ran: false, agrees: 0, disagrees: 0, unsure: 0, error: null as string | null }
+  if (hooks.audit) {
+    const items: AuditItem[] = fields
+      .filter((f) => results[f.id].status === 'supported' || results[f.id].status === 'conflicting')
+      .map((f) => ({
+        field: f,
+        value: results[f.id].value,
+        status: results[f.id].status,
+        quotes: results[f.id].evidence
+          .filter((e) => e.sourceMatchVerified)
+          .map((e) => ({
+            documentName: docs.find((d) => d.id === e.documentId)?.name ?? e.documentId,
+            quote: e.quote,
+            value: e.claimedValue,
+          })),
+      }))
+    if (items.length) {
+      await hooks.onProgress?.('Auditor pass: second opinion on verified answers')
+      try {
+        const out = await hooks.audit(items)
+        if (!out) throw new Error('auditor output was not valid')
+        audit.ran = true
+        for (const a of out.audits) {
+          if (!results[a.fieldId] || !items.some((it) => it.field.id === a.fieldId)) continue
+          results[a.fieldId] = { ...results[a.fieldId], audit: { verdict: a.verdict, note: a.note.slice(0, 300) } }
+          audit[a.verdict === 'agrees' ? 'agrees' : a.verdict === 'disagrees' ? 'disagrees' : 'unsure']++
+        }
+      } catch (err) {
+        audit.error = err instanceof Error ? err.message : String(err)
+      }
+    }
+  }
+
   const statusCounts: Record<string, number> = {}
   for (const r of Object.values(results)) statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1
 
@@ -119,6 +164,7 @@ export async function runPipeline(
       repairsNowMissing: nowMissing,
       repairsStillUnverified: still,
       statusCounts,
+      audit,
     },
   }
 }

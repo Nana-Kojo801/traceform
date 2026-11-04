@@ -44,6 +44,7 @@ export async function callStructured(
   config: ModelConfig,
   instructions: string,
   input: string,
+  schema: { name: string; schema: unknown } = { name: 'traceform_extraction', schema: modelOutputJsonSchema },
 ): Promise<ModelCallResult> {
   const res = await fetch(`${config.baseUrl.replace(/\/$/, '')}/responses`, {
     method: 'POST',
@@ -60,9 +61,9 @@ export async function callStructured(
       text: {
         format: {
           type: 'json_schema',
-          name: 'traceform_extraction',
+          name: schema.name,
           strict: true,
-          schema: modelOutputJsonSchema,
+          schema: schema.schema,
         },
       },
     }),

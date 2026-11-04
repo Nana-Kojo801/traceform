@@ -85,6 +85,13 @@ export interface RawResult {
   /** The status the model itself claimed, before verification. */
   modelStatus: 'supported' | 'missing' | 'conflicting'
   repair: RepairRecord | null
+  /** Advisory second opinion from a separate auditor call. Never changes status. */
+  audit?: AuditRecord | null
+}
+
+export interface AuditRecord {
+  verdict: 'agrees' | 'disagrees' | 'unsure'
+  note: string
 }
 
 /** The reviewer's working copy for one field. */

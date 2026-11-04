@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { FieldList, type StatusFilter } from './field-list'
 import { FieldDetail } from './field-detail'
 import { SourceViewer } from './source-viewer'
+import { TraceConnector } from './trace-connector'
 import type { ActiveEvidence, DocumentRow, SchemaRow, Workspace } from './types'
 
 type MobilePane = 'fields' | 'answer' | 'source'
@@ -32,6 +33,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
   const [viewDocId, setViewDocId] = useState<string | null>(null)
 
   const topRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
   // On small screens, switching panes jumps back to the top of the workspace.
   const showPane = useCallback((next: MobilePane) => {
     setPane(next)
@@ -133,7 +135,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
         {paneButton('source', 'Source')}
       </div>
 
-      <div className="grid gap-3 lg:h-[calc(100dvh-15.5rem)] lg:min-h-[560px] lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div ref={gridRef} className="relative grid gap-3 lg:h-[calc(100dvh-15.5rem)] lg:min-h-[560px] lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <section
           aria-label="Form fields"
           className={cn('min-h-0 lg:block', pane === 'fields' ? 'block' : 'hidden')}
@@ -150,6 +152,7 @@ export function ReviewWorkspace({ documents, schema, workspace, onGoTo }: Props)
           />
         </section>
 
+        <TraceConnector containerRef={gridRef} trigger={`${selectedId}:${active?.nonce ?? 0}:${workspace.selected._id}`} />
         <div className="min-h-0 lg:flex lg:flex-col lg:gap-3 xl:contents">
           <section
             aria-label="Selected answer"
