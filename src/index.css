@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+  --background: oklch(0.165 0.004 260);
+  --surface: oklch(0.198 0.005 260);
+  --surface-2: oklch(0.232 0.006 260);
+  --surface-3: oklch(0.27 0.007 260);
+  --border: oklch(0.3 0.007 260);
+  --border-strong: oklch(0.38 0.008 260);
+  --foreground: oklch(0.955 0.003 260);
+  --muted-foreground: oklch(0.7 0.01 260);
+  --subtle-foreground: oklch(0.56 0.01 260);
+  --accent: oklch(0.82 0.11 185);
+  --accent-strong: oklch(0.74 0.12 185);
+  --accent-foreground: oklch(0.2 0.03 190);
+  --accent-soft: oklch(0.82 0.11 185 / 0.14);
+  --ring: oklch(0.82 0.11 185 / 0.6);
+
+  --supported: oklch(0.78 0.13 155);
+  --supported-soft: oklch(0.78 0.13 155 / 0.13);
+  --conflicting: oklch(0.82 0.13 75);
+  --conflicting-soft: oklch(0.82 0.13 75 / 0.14);
+  --missing: oklch(0.72 0.01 260);
+  --missing-soft: oklch(0.72 0.01 260 / 0.12);
+  --review: oklch(0.72 0.16 30);
+  --review-soft: oklch(0.72 0.16 30 / 0.14);
+
+  --highlight: oklch(0.82 0.11 185 / 0.28);
+  --highlight-conflict: oklch(0.82 0.13 75 / 0.3);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-ring: var(--ring);
+  --color-supported: var(--supported);
+  --color-supported-soft: var(--supported-soft);
+  --color-conflicting: var(--conflicting);
+  --color-conflicting-soft: var(--conflicting-soft);
+  --color-missing: var(--missing);
+  --color-missing-soft: var(--missing-soft);
+  --color-review: var(--review);
+  --color-review-soft: var(--review-soft);
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* The source highlight: the "memorable moment" that ties an answer to its passage. */
+@keyframes trace-pulse {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.82 0.11 185 / 0.55);
+    background-color: oklch(0.82 0.11 185 / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 6px oklch(0.82 0.11 185 / 0);
+    background-color: var(--highlight);
+  }
+}
+
+.trace-mark {
+  background-color: var(--highlight);
+  color: var(--foreground);
+  border-radius: 3px;
+  padding: 1px 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.trace-mark[data-tone='conflict'] {
+  background-color: var(--highlight-conflict);
+}
+.trace-mark[data-active='true'] {
+  animation: trace-pulse 900ms ease-out 1;
+  outline: 1px solid oklch(0.82 0.11 185 / 0.7);
+}
+.trace-mark[data-tone='conflict'][data-active='true'] {
+  outline-color: oklch(0.82 0.13 75 / 0.8);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
