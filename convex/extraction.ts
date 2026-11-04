@@ -8,6 +8,7 @@ import { buildExtractionInput, buildRepairInput, EXTRACTION_INSTRUCTIONS, REPAIR
 import { runPipeline } from '../shared/pipeline'
 import { MAX_PARSE_RETRIES } from '../shared/limits'
 import type { FormField } from '../shared/types'
+import { applyRepair, verifyField } from '../shared/verify'
 
 function config(): ModelConfig | null {
   const apiKey = process.env.MODEL_API_KEY
@@ -84,6 +85,42 @@ export const execute = internalAction({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await ctx.runMutation(internal.runs.fail, { runId, error: message })
+    }
+  },
+})
+
+/**
+ * Evaluation probe (internal, CLI only: `npx convex run extraction:probeRepair`).
+ * Injects a deliberately fabricated quote for one field, confirms the verifier
+ * rejects it, then sends the real repair call to Meta and re-verifies.
+ */
+export const probeRepair = internalAction({
+  args: { projectId: v.id('projects'), fieldId: v.string(), fabricatedQuote: v.string(), value: v.string() },
+  handler: async (ctx, { projectId, fieldId, fabricatedQuote, value }) => {
+    const cfg = config()
+    if (!cfg) throw new Error('MODEL_API_KEY is not set.')
+    const data = await ctx.runQuery(internal.runs.getProjectContext, { projectId })
+    const field = data.fields.find((f) => f.id === fieldId) as FormField | undefined
+    if (!field || data.docs.length === 0) throw new Error('Field or documents not found.')
+    const docs = data.docs.map(toSourceDocument)
+    const first = verifyField(
+      field,
+      { fieldId, status: 'supported', value, reason: 'probe', evidence: [{ documentId: docs[0].id, quote: fabricatedQuote, value }] },
+      docs,
+    )
+    const failed = first.evidence.filter((e) => !e.sourceMatchVerified).map((e) => ({ documentId: e.documentId, quote: e.quote }))
+    const res = await callStructured(cfg, REPAIR_INSTRUCTIONS, buildRepairInput(field, docs, failed))
+    const parsed = parseModelOutput(res.text, [field])
+    if (!parsed.ok) return { firstPassStatus: first.status, repairError: parsed.error }
+    const repaired = applyRepair(first, verifyField(field, parsed.output.fields[0], docs))
+    return {
+      firstPassStatus: first.status,
+      firstPassIssues: first.issues,
+      repairOutcome: repaired.repair?.outcome,
+      repairedStatus: repaired.status,
+      repairedValue: repaired.value,
+      repairedQuotes: repaired.evidence.map((e) => ({ quote: e.quote, verified: e.sourceMatchVerified })),
+      tokens: { input: res.inputTokens, output: res.outputTokens },
     }
   },
 })

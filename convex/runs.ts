@@ -164,6 +164,15 @@ export const getRunContext = internalQuery({
   },
 })
 
+export const getProjectContext = internalQuery({
+  args: { projectId: v.id('projects') },
+  handler: async (ctx, { projectId }) => {
+    const schema = await getSchemaForProject(ctx, projectId)
+    const docs = (await getDocumentsForProject(ctx, projectId)).filter((d) => d.parseStatus === 'parsed')
+    return { fields: schema?.fields ?? [], docs }
+  },
+})
+
 export const setProgress = internalMutation({
   args: { runId: v.id('runs'), progress: v.string() },
   handler: async (ctx, { runId, progress }) => {
